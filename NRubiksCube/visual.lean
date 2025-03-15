@@ -1,5 +1,3 @@
-import Mathlib
-
 inductive Color
 | white | yellow | red | orange | blue | green
 deriving Repr
