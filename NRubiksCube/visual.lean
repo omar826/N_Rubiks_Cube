@@ -32,39 +32,16 @@ def listToFace (n : Nat) (lst : List (List Color)) : Face n :=
   { stickers := (lst.map (fun (row : List Color) =>
       (row.map (fun (c : Color) => { color := c })).toArray)).toArray }
 
-def custom2Cube : Cube 2 :=
-  { front  := listToFace 2 [[Color.green, Color.green],
-                            [Color.green, Color.green]],
-    back   := listToFace 2 [[Color.blue, Color.blue],
-                            [Color.blue, Color.blue]],
-    left   := listToFace 2 [[Color.orange, Color.orange],
-                            [Color.orange, Color.orange]],
-    right  := listToFace 2 [[Color.red, Color.red],
-                            [Color.red, Color.red]],
-    top    := listToFace 2 [[Color.white, Color.white],
-                            [Color.white, Color.white]],
-    bottom := listToFace 2 [[Color.yellow, Color.yellow],
-                            [Color.yellow, Color.yellow]] }
+-- define solved n x n cube
 
-def custom3Cube : Cube 3 :=
-  { front  := listToFace 3 [[Color.green, Color.green, Color.red],
-                            [Color.green, Color.red, Color.green],
-                            [Color.red, Color.green, Color.green]],
-    back   := listToFace 3 [[Color.blue, Color.blue, Color.white],
-                            [Color.blue, Color.white, Color.blue],
-                            [Color.white, Color.blue, Color.blue]],
-    left   := listToFace 3 [[Color.orange, Color.orange, Color.blue],
-                            [Color.orange, Color.blue, Color.orange],
-                            [Color.blue, Color.orange, Color.orange]],
-    right  := listToFace 3 [[Color.red, Color.red, Color.yellow],
-                            [Color.red, Color.yellow, Color.red],
-                            [Color.yellow, Color.red, Color.red]],
-    top    := listToFace 3 [[Color.white, Color.white, Color.green],
-                            [Color.white, Color.green, Color.white],
-                            [Color.green, Color.white, Color.white]],
-    bottom := listToFace 3 [[Color.yellow, Color.yellow, Color.orange],
-                            [Color.yellow, Color.orange, Color.yellow],
-                            [Color.orange, Color.yellow, Color.yellow]] }
+def solvedCube (n : Nat) : Cube n :=
+  { front  := listToFace n (List.replicate n (List.replicate n Color.green)),
+    back   := listToFace n (List.replicate n (List.replicate n Color.blue)),
+    left   := listToFace n (List.replicate n (List.replicate n Color.orange)),
+    right  := listToFace n (List.replicate n (List.replicate n Color.red)),
+    top    := listToFace n (List.replicate n (List.replicate n Color.white)),
+    bottom := listToFace n (List.replicate n (List.replicate n Color.yellow)) }
+
 
 -- should work for any n
 def printUnfoldedCube {n : Nat} (cube : Cube n) : IO Unit := do
@@ -88,6 +65,8 @@ def printUnfoldedCube {n : Nat} (cube : Cube n) : IO Unit := do
   for row in cube.bottom.stickers do
     IO.println (String.intercalate "" (row.toList.map (fun s => colorToEmoji s.color)))
 
-#eval printUnfoldedCube custom3Cube
+#eval printUnfoldedCube (solvedCube 2)
 
-#eval printUnfoldedCube custom2Cube
+#eval printUnfoldedCube (solvedCube 3)
+
+#eval printUnfoldedCube (solvedCube 9)
