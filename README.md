@@ -13,7 +13,4 @@ Some of the code in this project has been adapted from the **3 × 3 × 3 impleme
 ## Extended Goals  
 - Implement an **algorithm to solve a 2 × 2 × 2 cube**.  
 - Formally **prove the correctness** of the solving algorithm.  
-- Formally **prove the optimality** of the solving algorithm.  
-
-## License  
-This project follows the **Apache-2.0** license, in line with the original 3 × 3 × 3 implementation.  
+- Formally **prove the optimality** of the solving algorithm.
