@@ -1,3 +1,10 @@
+/-
+This file is adapted from the vihdzp/rubik-lean4 repository:
+https://github.com/vihdzp/rubik-lean4
+
+Original code licensed under Apache-2.0.
+Some parts have been modified significantly.
+-/
 --import Mathlib (cannot do this due to name clashes)
 import Mathlib.Data.ZMod.Defs
 import NRubiksCube.Equiv
