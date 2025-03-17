@@ -1,3 +1,9 @@
+/-
+This file is adapted from the vihdzp/rubik-lean4 repository:
+https://github.com/vihdzp/rubik-lean4
+
+Original code licensed under Apache-2.0.
+-/
 import Mathlib.Data.Fintype.Inv
 import Mathlib.Data.Fintype.EquivFin
 import Mathlib.GroupTheory.Perm.Basic
