@@ -1,4 +1,4 @@
-# N*N*N Rubik's Cube in Lean 4  
+# N×N×N Rubik's Cube in Lean 4  
 
 ## Overview  
 This project aims to model an **n × n × n Rubik's Cube** in **Lean 4**.  
