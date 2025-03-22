@@ -94,6 +94,8 @@ theorem flip_toFinset {n : {m : ℕ // m ≥ 3}} (e : EdgePiece n) :
 theorem flip_index {n : {m : ℕ // m ≥ 3}} (e : EdgePiece n) :
   (e.flip).index = e.index := rfl
 
+
+
 instance (n : {m : ℕ // m ≥ 3}): Setoid (EdgePiece n) where
   r e₁ e₂ := e₁.toFinset = e₂.toFinset ∧ e₁.index = e₂.index
   iseqv := by
@@ -105,10 +107,10 @@ instance (n : {m : ℕ // m ≥ 3}): Setoid (EdgePiece n) where
     · intro x y z h₁ h₂
       simp [h₁, h₂]
 
-theorem equiv_def (n : {m : ℕ // m ≥ 3}) (e₁ e₂ : EdgePiece n) :
+theorem equiv_def {n : {m : ℕ // m ≥ 3}} (e₁ e₂ : EdgePiece n) :
   e₁ ≈ e₂ ↔ e₁.toFinset = e₂.toFinset ∧ e₁.index = e₂.index := Iff.rfl
 
-theorem equiv_iff (n : {m : ℕ // m ≥ 3}) (e₁ e₂ : EdgePiece n) :
+theorem equiv_iff {n : {m : ℕ // m ≥ 3}} (e₁ e₂ : EdgePiece n) :
   e₁ ≈ e₂ ↔ e₁ = e₂ ∨ e₁ = e₂.flip := by
     simp_rw [equiv_def]
     constructor
@@ -117,6 +119,7 @@ theorem equiv_iff (n : {m : ℕ // m ≥ 3}) (e₁ e₂ : EdgePiece n) :
       · simp [h₁]
       · simp [h₁]
         sorry -- TODO: finish this
+
     · by_cases h : e₁ = e₂
       · simp [h]
       · simp [h]

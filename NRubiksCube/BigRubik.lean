@@ -80,20 +80,33 @@ theorem edge_flip_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n)
     rw [← cube.edgePieceEquiv.inv_apply_self (EdgePiece.flip _)]
     rw [cube.edge_flip, Perm.apply_inv_self]
 
-theorem corner_cyclic_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n)
-  (c : CornerPiece) :
+theorem corner_cyclic_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n) (c : CornerPiece) :
   cube.cornerPieceEquiv⁻¹ c.cyclic = (cube.cornerPieceEquiv⁻¹ c).cyclic := by
   apply Eq.symm
   rw [← cube.cornerPieceEquiv.inv_apply_self (CornerPiece.cyclic _)]
   rw [cube.corner_cyclic, Perm.apply_inv_self]
 
 theorem centre_square_edge_square_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n)
-  (e : CentreSquareEdge ⟨n.val, by omega⟩) :
-  (cube.centreSquareEdgeEquiv⁻¹ e).k = e.k := sorry -- TODO: finish this
+  (e : CentreSquareEdge ⟨n.val, by omega⟩) : (cube.centreSquareEdgeEquiv⁻¹ e).k = e.k := by
+  let e' := cube.centreSquareEdgeEquiv⁻¹ e
+  show e'.k = e.k
+  have h : e = cube.centreSquareEdgeEquiv e' := by
+    unfold e'
+    rw [Perm.apply_inv_self]
+  rw [h]
+  apply Eq.symm
+  exact cube.centre_square_edge_square e'
 
 theorem centre_square_corner_square_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n)
-  (c : CentreSquareCorner ⟨n.val, by omega⟩) :
-  (cube.centreSquareCornerEquiv⁻¹ c).k = c.k := sorry -- TODO: finish this
+  (c : CentreSquareCorner ⟨n.val, by omega⟩) : (cube.centreSquareCornerEquiv⁻¹ c).k = c.k := by
+  let c' := cube.centreSquareCornerEquiv⁻¹ c
+  show c'.k = c.k
+  have h : c = cube.centreSquareCornerEquiv c' := by
+    unfold c'
+    rw [Perm.apply_inv_self]
+  rw [h]
+  apply Eq.symm
+  exact cube.centre_square_corner_square c'
 
 theorem edgePieceEquiv_equiv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n)
   {e₁ e₂ : EdgePiece ⟨n.val, by omega⟩} (h : e₁ ≈ e₂) :
