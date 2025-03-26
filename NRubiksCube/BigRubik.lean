@@ -5,10 +5,10 @@ open Orientation Equiv
 
 /-- Permutations of pieces in an big Rubik's cube (n ≥ 5). -/
 structure BigIllegalRubik (n : {m : ℕ // m ≥ 5}) where
-  /-- Returns the corner piece at a given location. -/
-  cornerPieceEquiv : Perm CornerPiece
   /-- Returns the edge piece at a given location. -/
   edgePieceEquiv : Perm (EdgePiece ⟨n.val, by omega⟩)
+  /-- Returns the corner piece at a given location. -/
+  cornerPieceEquiv : Perm CornerPiece
   /-- Returns the centre square edge at a given location -/
   centreSquareEdgeEquiv : Perm (CentreSquareEdge ⟨n.val, by omega⟩)
   /-- Returns the centre square corner at a given location -/
@@ -23,6 +23,18 @@ structure BigIllegalRubik (n : {m : ℕ // m ≥ 5}) where
 
 namespace BigIllegalRubik
 
+@[ext]
+theorem ext {n : {m // m ≥ 5}} {cube₁ : BigIllegalRubik n} {cube₂ : BigIllegalRubik n}
+  (he : ∀ (e : EdgePiece ⟨n.val, by omega⟩), cube₁.edgePieceEquiv e = cube₂.edgePieceEquiv e)
+  (hc : ∀ (c : CornerPiece), cube₁.cornerPieceEquiv c = cube₂.cornerPieceEquiv c)
+  (hcse : ∀ (cse : CentreSquareEdge ⟨n.val, by omega⟩), cube₁.centreSquareEdgeEquiv cse = cube₂.centreSquareEdgeEquiv cse)
+  (hcsc : ∀ (csc : CentreSquareCorner ⟨n.val, by omega⟩), cube₁.centreSquareCornerEquiv csc = cube₂.centreSquareCornerEquiv csc) :
+  cube₁ = cube₂ := by
+  let ⟨e₁, c₁, cse₁, csc₁, _, _, _, _⟩ := cube₁
+  let ⟨e₂, c₂, cse₂, csc₂, _, _, _, _⟩ := cube₂
+  simp
+  rw [Equiv.ext_iff, Equiv.ext_iff, Equiv.ext_iff, Equiv.ext_iff]
+  exact ⟨he, hc, hcse, hcsc⟩
 
 /-- The solved Big Rubik's cubes. -/
 instance (n : {m // m ≥ 5}) : One (BigIllegalRubik n) where
@@ -50,8 +62,8 @@ instance (n : {m // m ≥ 5}) : Mul (BigIllegalRubik n) :=
     simp [cube₁.centre_square_corner_square, cube₂.centre_square_corner_square]
 
   ⟨fun cube₁ cube₂ ↦
-    ⟨cube₁.cornerPieceEquiv * cube₂.cornerPieceEquiv,
-    cube₁.edgePieceEquiv * cube₂.edgePieceEquiv,
+    ⟨cube₁.edgePieceEquiv * cube₂.edgePieceEquiv,
+    cube₁.cornerPieceEquiv * cube₂.cornerPieceEquiv,
     cube₁.centreSquareEdgeEquiv * cube₂.centreSquareEdgeEquiv,
     cube₁.centreSquareCornerEquiv * cube₂.centreSquareCornerEquiv,
     fun e ↦ h₁ cube₁ cube₂ e,
@@ -127,8 +139,17 @@ theorem cornerPieceEquiv_equiv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n)
 
 /-- The inverse of a Big Rubik's cube is obtained by performing its moves backwards. -/
 instance (n : {m // m ≥ 5}) : Inv (BigIllegalRubik n) :=
-  ⟨fun cube ↦ ⟨cube.cornerPieceEquiv⁻¹, cube.edgePieceEquiv⁻¹, cube.centreSquareEdgeEquiv⁻¹,
-    cube.centreSquareCornerEquiv⁻¹, fun e ↦ edge_flip_inv cube e, fun c ↦ corner_cyclic_inv cube c,
-    fun cse ↦ centre_square_edge_square_inv cube cse, fun csc ↦ centre_square_corner_square_inv cube csc⟩⟩
+  ⟨fun cube ↦ ⟨cube.edgePieceEquiv⁻¹, cube.cornerPieceEquiv⁻¹,
+    cube.centreSquareEdgeEquiv⁻¹, cube.centreSquareCornerEquiv⁻¹,
+    fun e ↦ edge_flip_inv cube e,
+    fun c ↦ corner_cyclic_inv cube c,
+    fun cse ↦ centre_square_edge_square_inv cube cse,
+    fun csc ↦ centre_square_corner_square_inv cube csc⟩⟩
+
+theorem edgePieceEquiv_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n) :
+  cube⁻¹.edgePieceEquiv = cube.edgePieceEquiv⁻¹ := rfl
+
+theorem cornerPieceEquiv_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n) :
+  cube⁻¹.cornerPieceEquiv = cube.cornerPieceEquiv⁻¹ := rfl
 
 end BigIllegalRubik
