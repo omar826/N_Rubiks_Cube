@@ -22,61 +22,168 @@ structure CornerPiece where
 
 namespace CornerPiece
 
+theorem ext {c₁ c₂ : CornerPiece} (hf : c₁.fst = c₂.fst) (hs : c₁.snd = c₂.snd): c₁ = c₂ := by
+    obtain ⟨f₁, s₁, t₁, h₁⟩ := c₁
+    obtain ⟨f₂, s₂, t₂, h₂⟩ := c₂
+    dsimp at *
+    subst hf hs
+    simpa using h₁.congr h₂
+
+theorem ext_iff {c₁ c₂ : CornerPiece} : c₁ = c₂ ↔ c₁.fst = c₂.fst ∧ c₁.snd = c₂.snd := by
+  constructor
+  · rintro rfl
+    exact ⟨rfl, rfl⟩
+  · rintro ⟨hf, hs⟩
+    exact ext hf hs
+
+theorem isAdjacent (c : CornerPiece) : IsAdjacent c.fst c.snd :=
+  c.isAdjacent₃.isAdjacent
+
 instance Inhabited : Inhabited CornerPiece where
   default := ⟨U, B, L, by decide⟩
 
 theorem ne (e : CornerPiece) : e.fst ≠ e.snd ∧ e.snd ≠ e.thd ∧ e.thd ≠ e.fst := e.isAdjacent₃.ne
 
-theorem ext (e₁ e₂ : CornerPiece)
-  (h₁ : e₁.fst = e₂.fst) (h₂ : e₁.snd = e₂.snd) (h₃ : e₁.thd = e₂.thd) :
-  e₁ = e₂ := by
-    cases e₁
-    cases e₂
-    simp [h₁, h₂, h₃]
-    exact ⟨h₁, h₂, h₃⟩
-
-theorem ext_iff (e₁ e₂ : CornerPiece) :
-  e₁ = e₂ ↔ e₁.fst = e₂.fst ∧ e₁.snd = e₂.snd ∧ e₁.thd = e₂.thd := by
-    constructor
-    · intro h
-      simp [h]
-    · intro h
-      cases e₁
-      cases e₂
-      simp [h]
-      exact h
-
-/-- Constructs the finset containing the corner's orientations. -/
-def toFinset (e : CornerPiece) : Finset Orientation :=
-  ⟨{e.fst, e.snd, e.thd}, by
-    have ⟨h₁, h₂, h₃⟩ := e.isAdjacent₃.ne
-    simp [h₁, h₂, h₃.symm]⟩
-
 /-- Permutes the colors in a corner cyclically. -/
 def cyclic (c : CornerPiece) : CornerPiece :=
   ⟨_, _, _, c.isAdjacent₃.cyclic⟩
 
-/-- Returns the unique corner piece sharing a corner, with the
-orientation of the given axis. -/
-def withAxis (c : CornerPiece) (a : Axis) : CornerPiece :=
-  if c.fst.axis = a then c
-  else if c.snd.axis = a then c.cyclic
-  else c.cyclic.cyclic
+theorem cyclic_mk {a b c : Orientation} (h : IsAdjacent₃ a b c) : cyclic ⟨a, b, c, h⟩ = ⟨b, c, a, h.cyclic⟩ :=
+  rfl
 
-/-- The "value" of a corner piece is the number of **counterclockwise**
-rotations needed to orient a specific face towards its corresponding axis. -/
+theorem cyclic_fst (c : CornerPiece) : c.cyclic.fst = c.snd :=
+  rfl
+
+theorem cyclic_snd (c : CornerPiece) : c.cyclic.snd = c.thd :=
+  rfl
+
+theorem cyclic_thd (c : CornerPiece) : c.cyclic.thd = c.fst :=
+  rfl
+
+theorem cyclic₃ (c : CornerPiece) : c.cyclic.cyclic.cyclic = c :=
+  rfl
+
+theorem cyclic_inj  {c₁ c₂ : CornerPiece} : c₁.cyclic = c₂.cyclic ↔ c₁ = c₂ := by
+  constructor
+  · exact congr_arg (cyclic ∘ cyclic)
+  · rintro rfl
+    rfl
+
+theorem cyclic_ne (c : CornerPiece) : c.cyclic ≠ c := by
+  rw [ne_eq, ext_iff, not_and, cyclic_fst]
+  intro h
+  cases c.isAdjacent.ne h.symm
+
+theorem cyclic_cyclic_ne (c : CornerPiece) : c.cyclic.cyclic ≠ c :=
+  (cyclic_ne c.cyclic.cyclic).symm
+
+theorem axis_thd (c : CornerPiece) : c.thd.axis = c.fst.axis.other c.snd.axis := by
+  rw [c.isAdjacent₃.eq_cross, axis_cross]
+
+/-- Constructs the finset containing the corner's orientations. -/
+def toFinset (e : CornerPiece) : Finset Orientation :=
+  ⟨{e.fst, e.snd, e.thd}, by
+    obtain ⟨h₁, h₂, h₃⟩ := e.isAdjacent₃.ne
+    simpa using ⟨⟨h₁, h₃.symm⟩, h₂⟩⟩
+
+theorem toFinset_val (c : CornerPiece) : c.toFinset.val = {c.fst, c.snd, c.thd} :=
+  rfl
+
+theorem mem_toFinset{a : Orientation} {c : CornerPiece} :
+  a ∈ c.toFinset ↔ a = c.fst ∨ a = c.snd ∨ a = c.thd := by
+    rw [toFinset]
+    simp
+
+theorem cyclic_toFinset (c : CornerPiece) : c.cyclic.toFinset = c.toFinset := by
+  have (a b c : Orientation) : ({a, b, c} : Multiset _) = {c, a, b} := by
+    change a ::ₘ b ::ₘ c ::ₘ 0 = c ::ₘ a ::ₘ b ::ₘ 0
+    rw [Multiset.cons_swap b, Multiset.cons_swap a]
+  simp_rw [toFinset, cyclic, this]
+
+/-- Returns the unique corner piece sharing a corner, with the orientation of the given axis. -/
+def withAxis (c : CornerPiece) (a : Axis) : CornerPiece :=
+  if c.fst.axis = a then c else if c.snd.axis = a then c.cyclic else c.cyclic.cyclic
+
+theorem axis_withAxis_fst (c : CornerPiece) (a : Axis) : (c.withAxis a).fst.axis = a := by
+  rw [withAxis]
+  split_ifs with h₁ h₂
+  · exact h₁
+  · rwa [cyclic_fst]
+  · rw [cyclic_fst, cyclic_snd, axis_thd, Axis.other_eq_iff c.isAdjacent]
+    exact ⟨Ne.symm h₁, Ne.symm h₂⟩
+
+theorem withAxis_cyclic (c : CornerPiece) (a : Axis) : c.cyclic.withAxis a = c.withAxis a := sorry
+
+/-- The "value" of a corner piece is the number of **counterclockwise** rotations needed to orient
+a specific face towards its corresponding axis. -/
 def value (c : CornerPiece) (a : Axis) : ZMod 3 :=
   if c.fst.axis = a then 0 else if c.thd.axis = a then 1 else 2
+
+theorem value_of_fst {c : CornerPiece} {a : Axis} (h : c.fst.axis = a) : c.value a = 0 :=
+  if_pos h
+
+theorem value_of_snd {c : CornerPiece} {a : Axis} (h : c.snd.axis = a) : c.value a = 2 := by
+  have : c.thd.axis ≠ a := (h.symm.trans_ne c.cyclic.isAdjacent).symm
+  rw [value, if_neg (ne_of_ne_of_eq c.isAdjacent h), if_neg this]
+
+theorem value_of_thd {c : CornerPiece} {a : Axis} (h : c.thd.axis = a) : c.value a = 1 := by
+  have : c.fst.axis ≠ a := (h.symm.trans_ne c.cyclic.cyclic.isAdjacent).symm
+  rw [value, if_neg this, if_pos h]
+
+theorem value_withAxis (c : CornerPiece) (a : Axis) : (c.withAxis a).value a = 0 :=
+  value_of_fst (axis_withAxis_fst c a)
+
+theorem value_cyclic (c : CornerPiece) (a : Axis) : c.cyclic.value a = c.value a + 1 := by
+  rw [value]
+  split_ifs with h₁ h₂
+  · rw [value_of_snd h₁]
+    rfl
+  · rw [value_of_fst h₂, zero_add]
+  · rw [value_of_thd, one_add_one_eq_two]
+    rw [c.isAdjacent₃.eq_cross, axis_cross, Axis.other_eq_iff c.isAdjacent]
+    exact ⟨Ne.symm h₂, Ne.symm h₁⟩
+
+theorem value_cyclic' (c : CornerPiece) (a : Axis) : c.value a = c.cyclic.value a - 1 :=
+  eq_sub_iff_add_eq.2 (value_cyclic c a).symm
 
 instance : Setoid CornerPiece where
   r c₁ c₂ := c₁.toFinset = c₂.toFinset
   iseqv := by
     constructor
-    · intro x
-      rfl
+    · exact fun x ↦ rfl
     · exact Eq.symm
     · exact Eq.trans
 
+theorem equiv_def {c₁ c₂ : CornerPiece} : c₁ ≈ c₂ ↔ c₁.toFinset = c₂.toFinset :=
+  Iff.rfl
+
+theorem equiv_iff : ∀ {c₁ c₂ : CornerPiece},
+    c₁ ≈ c₂ ↔ c₁ = c₂ ∨ c₁ = c₂.cyclic ∨ c₁.cyclic = c₂ := sorry
+
+theorem equiv_iff' {c₁ c₂ : CornerPiece} : c₁ ≈ c₂ ↔ c₁ = c₂ ∨ c₁ = c₂.cyclic ∨ c₁ = c₂.cyclic.cyclic := by
+  rw [equiv_iff]
+  convert Iff.rfl using 3
+  rw [← cyclic_inj, cyclic₃]
+
+theorem cyclic_equiv (c : CornerPiece) : c.cyclic ≈ c :=
+  c.cyclic_toFinset
+
+theorem withAxis_equiv (c : CornerPiece) (a : Axis) : c.withAxis a ≈ c := by
+  rw [withAxis]
+  split_ifs
+  · rfl
+  · exact cyclic_equiv c
+  · exact (cyclic_equiv _).trans (cyclic_equiv c)
+
+theorem withAxis_eq_of_equiv {c₁ c₂ : CornerPiece} (h : c₁ ≈ c₂) (a : Axis) :
+    c₁.withAxis a = c₂.withAxis a := by
+  obtain rfl | rfl | rfl := equiv_iff.1 h
+  · rfl
+  · rw [withAxis_cyclic]
+  · rw [withAxis_cyclic]
+
+theorem value_eq_iff_of_equiv{c₁ c₂ : CornerPiece} {a : Axis} (hc : c₁ ≈ c₂)
+    : c₁.value a = c₂.value a ↔ c₁ = c₂ := sorry
 end CornerPiece
 
 /-- Identifies corner pieces in a corner. -/

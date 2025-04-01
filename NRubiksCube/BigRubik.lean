@@ -71,6 +71,7 @@ instance (n : {m // m ≥ 5}) : Mul (BigIllegalRubik n) :=
     fun cse ↦ h₃ cube₁ cube₂ cse,
     fun csc ↦ h₄ cube₁ cube₂ csc⟩⟩
 
+
 theorem edgePieceEquiv_mul {n : {m // m ≥ 5}} (cube₁ cube₂ : BigIllegalRubik n) :
   (cube₁ * cube₂).edgePieceEquiv = cube₁.edgePieceEquiv * cube₂.edgePieceEquiv := rfl
 
@@ -134,8 +135,17 @@ theorem edgePieceEquiv_equiv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n)
 
 theorem cornerPieceEquiv_equiv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n)
   {c₁ c₂ : CornerPiece} (h : c₁ ≈ c₂) :
-  cube.cornerPieceEquiv c₁ ≈ cube.cornerPieceEquiv c₂ :=
-    sorry -- TODO: finish this
+  cube.cornerPieceEquiv c₁ ≈ cube.cornerPieceEquiv c₂ := by
+    by_cases h₁ : c₁ = c₂
+    · simp [h₁]
+      apply Setoid.refl
+    · rw [CornerPiece.equiv_iff] at h
+      simp [h₁] at h
+      by_cases h₂ : c₁ = c₂.cyclic
+      · simp [h₂, cube.corner_cyclic, CornerPiece.equiv_iff]
+      · simp [h₂] at h
+        rw [← h]
+        simp [cube.corner_cyclic, CornerPiece.equiv_iff]
 
 /-- The inverse of a Big Rubik's cube is obtained by performing its moves backwards. -/
 instance (n : {m // m ≥ 5}) : Inv (BigIllegalRubik n) :=
@@ -151,5 +161,39 @@ theorem edgePieceEquiv_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n) :
 
 theorem cornerPieceEquiv_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n) :
   cube⁻¹.cornerPieceEquiv = cube.cornerPieceEquiv⁻¹ := rfl
+
+theorem centreSquareEdgeEquiv_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n):
+  cube⁻¹.centreSquareEdgeEquiv = cube.centreSquareEdgeEquiv⁻¹ := rfl
+
+theorem centreSquareCornerEquiv_inv {n : {m // m ≥ 5}} (cube : BigIllegalRubik n):
+  cube⁻¹.centreSquareCornerEquiv = cube.centreSquareCornerEquiv⁻¹ := rfl
+
+/-- The Illegal Rubik's cube group. -/
+instance (n : {m : ℕ // m ≥ 5}) : Group (BigIllegalRubik n) where
+  mul_assoc a b c := by ext <;> rfl
+  one_mul a := by ext <;> rfl
+  mul_one a := by ext <;> rfl
+  inv_mul_cancel a := by
+    apply ext
+    · intro e
+      have h : (edgePieceEquiv 1) e = e := rfl
+      rw [h]
+      rw [edgePieceEquiv_mul, edgePieceEquiv_inv]
+      simp
+    · intro c
+      have h : (@cornerPieceEquiv n 1) c = c := rfl
+      rw [h]
+      rw [cornerPieceEquiv_mul, cornerPieceEquiv_inv]
+      simp
+    · intro cse
+      have h : (centreSquareEdgeEquiv 1) cse = cse := rfl
+      rw [h]
+      rw [centreSquareEdgeEquiv_mul, centreSquareEdgeEquiv_inv]
+      simp
+    · intro csc
+      have h : (centreSquareCornerEquiv 1) csc = csc := rfl
+      rw [h]
+      rw [centreSquareCornerEquiv_mul, centreSquareCornerEquiv_inv]
+      simp
 
 end BigIllegalRubik
