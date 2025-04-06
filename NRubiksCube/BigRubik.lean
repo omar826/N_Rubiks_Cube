@@ -196,4 +196,166 @@ instance (n : {m : ℕ // m ≥ 5}) : Group (BigIllegalRubik n) where
       rw [centreSquareCornerEquiv_mul, centreSquareCornerEquiv_inv]
       simp
 
+/-- `edgePieceEquiv` as a monoid homomorphism. -/
+def edgePieceEquivHom (n : {m : ℕ // m ≥ 5}) :
+  BigIllegalRubik n →* Perm (EdgePiece ⟨n.val, by omega⟩) where
+  toFun cube := cube.edgePieceEquiv
+  map_one' := rfl
+  map_mul' a b := edgePieceEquiv_mul a b
+
+/-- `cornerPieceEquiv` as a monoid homomorphism. -/
+def cornerPieceEquivHom (n : {m : ℕ // m ≥ 5}) :
+  BigIllegalRubik n →* Perm CornerPiece where
+  toFun cube := cube.cornerPieceEquiv
+  map_one' := rfl
+  map_mul' a b := cornerPieceEquiv_mul a b
+
+/-- `centreSquareEdgeEquiv` as a monoid homomorphism. -/
+def centreSquareEdgeEquivHom (n : {m : ℕ // m ≥ 5}) :
+  BigIllegalRubik n →* Perm (CentreSquareEdge ⟨n.val, by omega⟩) where
+  toFun cube := cube.centreSquareEdgeEquiv
+  map_one' := rfl
+  map_mul' a b := centreSquareEdgeEquiv_mul a b
+
+/-- `centreSquareCornerEquiv` as a monoid homomorphism. -/
+def centreSquareCornerEquivHom (n : {m : ℕ // m ≥ 5}) :
+  BigIllegalRubik n →* Perm (CentreSquareCorner ⟨n.val, by omega⟩) where
+  toFun cube := cube.centreSquareCornerEquiv
+  map_one' := rfl
+  map_mul' a b := centreSquareCornerEquiv_mul a b
+
+/-- A Rubik's cube defines a permutation of edges. -/
+def edgeEquiv (n : {m : ℕ // m ≥ 5}) :
+  BigIllegalRubik n →* Perm (Edge ⟨n.val, by omega⟩) where
+  toFun cube := by
+    refine ⟨Quotient.lift (fun x ↦ ⟦cube.edgePieceEquiv x⟧) ?_,
+      Quotient.lift (fun x ↦ ⟦(cube.edgePieceEquiv)⁻¹ x⟧) ?_, fun e ↦ ?_, fun e ↦ ?_⟩
+    · intro e₁ e₂ h
+      apply Quotient.sound
+      rw [EdgePiece.equiv_iff] at h
+      by_cases h₁ : e₁ = e₂
+      · rw [h₁]
+        apply Setoid.refl
+      · simp [h₁] at h
+        rw [h]
+        rw [cube.edge_flip]
+        simp [EdgePiece.equiv_iff]
+    · intro e₁ e₂ h
+      apply Quotient.sound
+      rw [EdgePiece.equiv_iff] at h
+      by_cases h₁ : e₁ = e₂
+      · rw [h₁]
+        apply Setoid.refl
+      · simp [h₁] at h
+        rw [h]
+        rw[cube.edge_flip_inv]
+        simp [EdgePiece.equiv_iff]
+    · refine Quotient.inductionOn e ?_
+      intro
+      simp_rw [Quotient.lift_mk, Perm.inv_apply_self]
+    · refine Quotient.inductionOn e ?_
+      intro
+      simp_rw [Quotient.lift_mk, Perm.apply_inv_self]
+  map_one' := by
+    ext e
+    refine Quotient.inductionOn e ?_
+    exact fun _ ↦ rfl
+  map_mul' cube₁ cube₂ := by
+    ext e
+    refine Quotient.inductionOn e ?_
+    simp
+    intro e
+    apply Quotient.sound
+    simp [edgePieceEquiv_mul, Setoid.refl]
+
+theorem edgeEquiv_mk {n : {m : ℕ // m ≥ 5}} (cube : BigIllegalRubik n) (e : EdgePiece ⟨n.val, by omega⟩) :
+  edgeEquiv n cube (⟦e⟧) = ⟦cube.edgePieceEquiv e⟧ := rfl
+
+theorem edgeEquiv_one (n : {m : ℕ // m ≥ 5}) : edgeEquiv n 1 = 1 :=
+  map_one _
+
+theorem edgeEquiv_of_edgePieceEquiv_eq_one (n : {m : ℕ // m ≥ 5}) {cube : BigIllegalRubik n}
+(h : edgePieceEquiv cube = 1) : edgeEquiv n cube = 1 := by
+  ext e
+  refine e.inductionOn ?_
+  simp [edgeEquiv_mk, h]
+
+/-- A Rubik's cube defines a permutation of corners -/
+def cornerEquiv (n : {m : ℕ // m ≥ 5}) :
+  BigIllegalRubik n →* Perm Corner where
+  toFun cube := by
+    refine ⟨Quotient.lift (fun x ↦ ⟦cube.cornerPieceEquiv x⟧) ?_,
+      Quotient.lift (fun x ↦ ⟦(cube.cornerPieceEquiv)⁻¹ x⟧) ?_, fun c ↦ ?_, fun c ↦ ?_⟩
+    · intro c₁ c₂ h
+      apply Quotient.sound
+      rw [CornerPiece.equiv_iff] at h
+      by_cases h₁ : c₁ = c₂
+      · rw [h₁]
+        apply Setoid.refl
+      · by_cases h₂ : c₁ = c₂.cyclic
+        · rw [h₂]
+          simp [cube.corner_cyclic, CornerPiece.equiv_iff]
+        · simp [h₁, h₂] at h
+          rw [← h]
+          simp [cube.corner_cyclic, CornerPiece.equiv_iff]
+    · intro c₁ c₂ h
+      apply Quotient.sound
+      rw [CornerPiece.equiv_iff] at h
+      by_cases h₁ : c₁ = c₂
+      · rw [h₁]
+        apply Setoid.refl
+      · simp [h₁] at h
+        by_cases h₂ : c₁ = c₂.cyclic
+        · rw [h₂]
+          simp [cube.corner_cyclic_inv, CornerPiece.equiv_iff]
+        · simp [h₂] at h
+          rw [← h]
+          simp [cube.corner_cyclic_inv, CornerPiece.equiv_iff]
+    · refine Quotient.inductionOn c ?_
+      intro
+      simp_rw [Quotient.lift_mk, Perm.inv_apply_self]
+    · refine Quotient.inductionOn c ?_
+      intro
+      simp_rw [Quotient.lift_mk, Perm.apply_inv_self]
+  map_one' := by
+    ext c
+    refine Quotient.inductionOn c ?_
+    exact fun _ ↦ rfl
+  map_mul' cube₁ cube₂ := by
+    ext c
+    refine Quotient.inductionOn c ?_
+    simp
+    intro c
+    apply Quotient.sound
+    simp [cornerPieceEquiv_mul, Setoid.refl]
+
+theorem cornerEquiv_mk {n : {m : ℕ // m ≥ 5}} (cube : BigIllegalRubik n) (c : CornerPiece) :
+  cornerEquiv n cube (⟦c⟧) = ⟦cube.cornerPieceEquiv c⟧ := rfl
+
+theorem cornerEquiv_one (n : {m : ℕ // m ≥ 5}) : cornerEquiv n 1 = 1 :=
+  map_one _
+
+theorem cornerEquiv_of_cornerPieceEquiv_eq_one (n : {m : ℕ // m ≥ 5}) {cube : BigIllegalRubik n}
+(h : cornerPieceEquiv cube = 1) : cornerEquiv n cube = 1 := by
+  ext c
+  refine c.inductionOn ?_
+  simp [cornerEquiv_mk, h]
+
+/-- A Rubik's cube defines a permutation of centre square edges for each k-value -/
+def centreSquareEdgeKEquiv (n : {m : ℕ // m ≥ 5}) (k : Fin (n.val - 4))
+(h : k.val % 2 = (n.val + 1) % 2) :
+BigIllegalRubik n →* Perm (CentreSquareEdgeK ⟨n.val, by omega⟩ k h) where
+  toFun := sorry
+  map_one' := sorry
+  map_mul' := sorry
+
+/-- A Rubik's cube defines a permutation of centre square corners for each k-value -/
+def centreSquareCornerKEquiv (n : {m : ℕ // m ≥ 5}) (k : Fin (n.val - 4))
+(h : k.val % 2 = (n.val + 1) % 2) :
+BigIllegalRubik n →*
+Perm (CentreSquareCornerK ⟨n.val, by omega⟩ ⟨k.val, by simp; omega⟩ sorry) where
+  toFun := sorry
+  map_one' := sorry
+  map_mul' := sorry
+
 end BigIllegalRubik

@@ -293,7 +293,7 @@ their color, as well an index.
 TODO: How do we exactly index? and does it matter? -/
 structure CentreSquareEdge (n : {m : ℕ // m ≥ 5}) where
   k : Fin (n.val - 4) -- side length - 3
-  h₂ : k.val % 2 = (n.val + 1) % 2 -- parity condition
+  h : k.val % 2 = (n.val + 1) % 2 -- parity condition
   face : Orientation
   index : Fin (4 * (k.val + 1))
 
@@ -341,15 +341,23 @@ theorem ext_iff {n : {m : ℕ // m ≥ 5}} (e₁ e₂ : CentreSquareEdge n) :
 
 end CentreSquareEdge
 
+/-- The centre square edges with the same k-value. -/
+def CentreSquareEdgeK (n : {m : ℕ // m ≥ 5}) (k : Fin (n.val - 4))
+(h : k.val % 2 = (n.val + 1) % 2) : Type :=
+  have h₁ (e : CentreSquareEdge n) (h₂ : e.k = k) : e.k.val % 2 = (n.val + 1) % 2 := by
+    rw [h₂]
+    exact h
+  sorry
+
 /-- The corners of concentric squares of centre pieces. Note that such
 concentric squares contain corners only when the sidelength of the square
 is atleast 2 (which requires n atleast 4).
 
-These pieces are define by the side length of the square it belongs to,
+These pieces are define by the side length of the square it belongs tozz,
 their color, as well as an index ranging from 0 to 3. -/
 structure CentreSquareCorner (n : {m : ℕ // m ≥ 4}) where
   k : Fin (n.val - 3) -- side length - 2
-  h₂ : k.val % 2 = n.val % 2
+  h : k.val % 2 = n.val % 2
   face : Orientation
   index : Fin 4
 
@@ -388,5 +396,13 @@ theorem ext_iff {n : {m : ℕ // m ≥ 4}} (e₁ e₂ : CentreSquareCorner n) :
       omega
 
 end CentreSquareCorner
+
+/-- The centre square corners with the same k-value. -/
+def CentreSquareCornerK (n : {m : ℕ // m ≥ 4}) (k : Fin (n.val - 3))
+(h : k.val % 2 = n.val % 2) : Type :=
+  have h₁ (e : CentreSquareCorner n) (h₂ : e.k = k) : e.k.val % 2 = n.val % 2 := by
+    rw [h₂]
+    exact h
+  sorry
 
 end Orientation
