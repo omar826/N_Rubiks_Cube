@@ -18,6 +18,15 @@ namespace Equiv
 
 variable {α : Type*}
 
+/-
+Swap a b : permutation that swaps a and b.
+
+cycle a b c : permutation that cycles a, b, c.
+
+conjugation: e * f * e⁻¹ : conjugation of f by e.
+
+-/
+
 @[simp]
 theorem symm_mul (e₁ e₂ : Perm α) : (e₁ * e₂).symm = e₂.symm * e₁.symm :=
   rfl
