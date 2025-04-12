@@ -323,17 +323,26 @@ def Corner : Type := Quotient CornerPiece.instSetoid
 
 namespace Corner
 
+/--
+Provides a default corner instance
+-/
 instance : Inhabited Corner :=
   Quotient.instInhabitedQuotient _
 
+/--
+⟦c1⟧ = ⟦c2⟧ iff c1 ≈ c2
+-/
 @[simp]
 protected theorem eq {c₁ c₂ : CornerPiece} : (⟦c₁⟧ : Corner) = ⟦c₂⟧ ↔ c₁ ≈ c₂ :=
   Quotient.eq
 
-/-- Builds a `Corner`, automatically inferring the adjacency condition. -/
+/-- Builds a `Corner`, inferring the adjacency condition. -/
 protected abbrev mk (a b c : Orientation) (h : IsAdjacent₃ a b c := by decide) : Corner :=
   ⟦CornerPiece.mk a b c h⟧
 
+/--
+⟦c.cyclic⟧ = ⟦c⟧
+-/
 @[simp]
 theorem mk_cyclic (c : CornerPiece) : (⟦c.cyclic⟧ : Corner) = ⟦c⟧ :=
   Quotient.sound c.cyclic_toFinset
@@ -346,6 +355,7 @@ def toFinset : Corner → Finset Orientation :=
 theorem toFinset_mk (c : CornerPiece) : toFinset ⟦c⟧ = c.toFinset :=
   rfl
 
+/--toFinset is injective-/
 theorem toFinset_injective : Function.Injective toFinset := by
   intro c₁ c₂
   refine Quotient.inductionOn₂ c₁ c₂ ?_
@@ -359,12 +369,15 @@ theorem toFinset_inj (c₁ c₂ : Corner) : c₁.toFinset = c₂.toFinset ↔ c�
 unsafe instance : Repr Corner :=
   ⟨fun c _ ↦ repr c.toFinset⟩
 
+
+#eval (Corner.mk U B L ) -- {U, B, L}
+
 /-- An "arbitrary" computable linear order. -/
 instance : LinearOrder Corner :=
   LinearOrder.lift' (fun c ↦ Finset.Colex.toColex c.toFinset) (fun _ _ ↦ by simp)
 
 /-- Given a corner and an axis, you can recover a unique corner piece within that corner with that
-axis. -/
+axis first -/
 def toCornerPiece (c : Corner) (a : Axis) : CornerPiece :=
   c.lift (fun c ↦ CornerPiece.withAxis c a) (by
     intro _ _ h
@@ -405,10 +418,16 @@ def rotateEquiv (c : Corner) : Equiv.Perm CornerPiece :=
       repeat rw [Equiv.cycle_cyclic]
   )
 
+/--
+rotateEquiv(⟦(a,b,c)⟧) = ((a,b,c), (b,c,a), (c,a,b))
+-/
 theorem rotateEquiv_mk (c : CornerPiece) :
     rotateEquiv ⟦c⟧ = Equiv.cycle c c.cyclic c.cyclic.cyclic :=
   rfl
 
+/--
+((a,b,c), (b,c,a), (c,a,b))(a,b,c) = (b,c,a)
+-/
 @[simp]
 theorem rotateEquiv_self (c : CornerPiece) : rotateEquiv ⟦c⟧ c = c.cyclic := by
   rw [rotateEquiv_mk, Equiv.cycle_fst]
@@ -458,6 +477,272 @@ theorem rotateEquiv_cyclic (c : Corner) (a : CornerPiece) :
     rwa [mk_cyclic]
 
 end Corner
+
+/-- The type `PRubik` contains a `Perm EdgePiece` field, which assigns to each edge piece position in
+the cube a particular sticker. -/
+structure SingleEdgePiece : Type where
+  /-- The first and "distinguished" orientation in the edge piece. -/
+  fst : Orientation
+  /-- The second orientation in the edge piece. -/
+  snd : Orientation
+  /-- Both orientations are adjacent. -/
+  isAdjacent : IsAdjacent fst snd
+
+deriving instance DecidableEq, Fintype for SingleEdgePiece
+
+namespace SingleEdgePiece
+
+variable {e₁ e₂ : SingleEdgePiece}
+
+instance : Inhabited SingleEdgePiece :=
+  ⟨SingleEdgePiece.mk U B (by decide)⟩
+
+instance : Repr SingleEdgePiece :=
+  ⟨fun e ↦ [e.fst, e.snd].repr⟩
+
+protected theorem ne (e : SingleEdgePiece) : e.fst ≠ e.snd :=
+  e.isAdjacent.ne
+
+-- Not marked as `ext` since it creates undesirable goals with `PRubik.ext`.
+theorem ext (hf : e₁.fst = e₂.fst) (hs : e₁.snd = e₂.snd) : e₁ = e₂ := by
+  cases e₁
+  cases e₂
+  simpa using ⟨hf, hs⟩
+
+theorem ext_iff : e₁ = e₂ ↔ e₁.fst = e₂.fst ∧ e₁.snd = e₂.snd := by
+  constructor
+  · rintro rfl
+    exact ⟨rfl, rfl⟩
+  · rintro ⟨hf, hs⟩
+    exact ext hf hs
+
+/-- An "arbitrary" computable linear order. -/
+instance : LinearOrder SingleEdgePiece :=
+  LinearOrder.lift' (fun e ↦ [e.fst, e.snd]) (fun _ _ ↦ by simp [ext_iff])
+
+/-- Builds an `EdgePiece`, automatically inferring the adjacency condition. -/
+protected abbrev mk' (a b : Orientation) (h : IsAdjacent a b := by decide) : SingleEdgePiece :=
+  SingleEdgePiece.mk a b h
+
+/-- Constructs the other edge piece sharing an edge. -/
+def flip (e : SingleEdgePiece) : SingleEdgePiece :=
+  ⟨_, _, e.isAdjacent.symm⟩
+
+@[simp]
+theorem flip_mk (h : IsAdjacent a b) : flip ⟨a, b, h⟩ = ⟨b, a, h.symm⟩ :=
+  rfl
+
+@[simp]
+theorem flip_fst (e : SingleEdgePiece) : e.flip.fst = e.snd :=
+  rfl
+
+@[simp]
+theorem flip_snd (e : SingleEdgePiece) : e.flip.snd = e.fst :=
+  rfl
+
+@[simp]
+theorem flip₂ (e : SingleEdgePiece) : e.flip.flip = e :=
+  rfl
+
+@[simp]
+theorem flip_inj : e₁.flip = e₂.flip ↔ e₁ = e₂ :=
+  (Function.LeftInverse.injective flip₂).eq_iff
+
+@[simp]
+theorem flip_ne (e : SingleEdgePiece) : e.flip ≠ e := by
+  rw [ne_eq, SingleEdgePiece.ext_iff, flip_fst, flip_snd, not_and]
+  intro h
+  cases e.isAdjacent.ne h.symm
+
+/-- Constructs the finset containing the edge's orientations. -/
+def toFinset (e : SingleEdgePiece) : Finset Orientation :=
+  ⟨{e.fst, e.snd}, by simpa using e.isAdjacent.ne⟩
+
+theorem toFinset_val (e : SingleEdgePiece) : e.toFinset.val = {e.fst, e.snd} :=
+  rfl
+
+theorem mem_toFinset {e : SingleEdgePiece} : a ∈ e.toFinset ↔ a = e.fst ∨ a = e.snd := by
+  rw [toFinset]
+  simp
+
+@[simp]
+theorem flip_toFinset (e : SingleEdgePiece) : e.flip.toFinset = e.toFinset := by
+  rw [toFinset]
+  simp_rw [Multiset.pair_comm]
+  rfl
+
+/-- Returns the unique edge piece sharing a edge, with the given orientation.
+
+If the edge does not contain the orientation, we return some dummy edge piece. -/
+def withOrientation (e : SingleEdgePiece) (a : Orientation) : SingleEdgePiece :=
+  if e.fst = a then e else if e.snd = a then e.flip else default
+
+theorem withOrientation_fst (e : SingleEdgePiece) (ha : a ∈ e.toFinset) :
+    (e.withOrientation a).fst = a := by
+  rw [withOrientation]
+  obtain rfl | rfl := mem_toFinset.1 ha
+  · rw [if_pos rfl]
+  · rw [if_neg e.isAdjacent.ne, if_pos rfl, flip_fst]
+
+@[simp]
+theorem withOrientation_flip (e : SingleEdgePiece) : e.flip.withOrientation a = e.withOrientation a := by
+  rw [withOrientation, withOrientation]
+  by_cases ha : a ∈ e.toFinset
+  · have h := e.isAdjacent.ne
+    obtain rfl | rfl := mem_toFinset.1 ha <;>
+    simp [h, h.symm]
+  · rw [mem_toFinset, not_or] at ha
+    simp [Ne.symm ha.1, Ne.symm ha.2]
+
+instance : Setoid SingleEdgePiece where
+  r e₁ e₂ := e₁.toFinset = e₂.toFinset
+  iseqv := by
+    constructor
+    · exact fun x ↦ rfl
+    · exact Eq.symm
+    · exact Eq.trans
+
+theorem equiv_def : e₁ ≈ e₂ ↔ e₁.toFinset = e₂.toFinset :=
+  Iff.rfl
+
+theorem equiv_iff : ∀ {e₁ e₂ : SingleEdgePiece}, e₁ ≈ e₂ ↔ e₁ = e₂ ∨ e₁ = e₂.flip := by
+  simp_rw [equiv_def]
+  decide
+
+instance : DecidableRel (α := SingleEdgePiece) (· ≈ ·) :=
+  fun _ _ ↦ decidable_of_iff _ equiv_iff.symm
+
+theorem flip_equiv (e : SingleEdgePiece) : e.flip ≈ e :=
+  e.flip_toFinset
+
+end SingleEdgePiece
+
+/-- An edge is the equivalence class of edge pieces sharing an edge. -/
+def SingleEdge : Type := Quotient SingleEdgePiece.instSetoid
+
+namespace SingleEdge
+
+instance : Inhabited SingleEdge :=
+  Quotient.instInhabitedQuotient _
+
+instance : DecidableEq SingleEdge :=
+  Quotient.decidableEq
+
+instance : Fintype SingleEdge :=
+  Quotient.fintype _
+
+@[simp]
+protected theorem eq {e₁ e₂ : SingleEdgePiece} : (⟦e₁⟧ : SingleEdge) = ⟦e₂⟧ ↔ e₁ ≈ e₂ :=
+  Quotient.eq
+
+/-- Builds an `Edge`, automatically inferring the adjacency condition. -/
+protected abbrev mk (a b : Orientation) (h : IsAdjacent a b := by decide) : SingleEdge :=
+  ⟦SingleEdgePiece.mk a b h⟧
+
+@[simp]
+theorem mk_flip (e : SingleEdgePiece) : (⟦e.flip⟧ : SingleEdge) = ⟦e⟧ :=
+  Quotient.sound e.flip_equiv
+
+/-- Constructs the finset containing the edge's orientations. -/
+def toFinset : SingleEdge → Finset Orientation :=
+  Quotient.lift SingleEdgePiece.toFinset (fun _ _ ↦ id)
+
+@[simp]
+theorem toFinset_mk (e : SingleEdgePiece) : toFinset ⟦e⟧ = e.toFinset :=
+  rfl
+
+theorem toFinset_injective : Function.Injective toFinset := by
+  intro e₁ e₂
+  refine Quotient.inductionOn₂ e₁ e₂ ?_
+  intro e₁ e₂ h
+  rwa [toFinset_mk, toFinset_mk, ← SingleEdgePiece.equiv_def, ← SingleEdge.eq] at h
+
+@[simp]
+theorem toFinset_inj (e₁ e₂ : SingleEdge) : e₁.toFinset = e₂.toFinset ↔ e₁ = e₂ :=
+  toFinset_injective.eq_iff
+
+unsafe instance : Repr SingleEdge :=
+  ⟨fun e _ ↦ repr e.toFinset⟩
+
+/-- An "arbitrary" computable linear order. -/
+instance : LinearOrder SingleEdge :=
+  LinearOrder.lift' (fun e ↦ Finset.Colex.toColex e.toFinset) (fun _ _ ↦ by simp)
+
+/-- Computably chooses an edge piece equivalent to this edge. -/
+def out (e : SingleEdge) : SingleEdgePiece :=
+  (Finset.univ.sort (· ≤ ·)).choose (fun x ↦ ⟦x⟧ = e) ⟨Quotient.out e, by simp⟩
+
+@[simp]
+theorem out_eq (e : SingleEdge) : ⟦e.out⟧ = e :=
+  (List.choose_spec (fun x ↦ ⟦x⟧ = e) _ _).2
+
+theorem mk_out (e : SingleEdgePiece) : SingleEdge.out ⟦e⟧ ≈ e :=
+  Quotient.exact (out_eq _)
+
+/-- Given an edge and an orientation it contains, you can recover a unique edge piece within that
+edge with that orientation.
+
+If the edge does not contain the orientation, we return some dummy edge piece. -/
+def toSingleEdgePiece (e : SingleEdge) (a : Orientation) : SingleEdgePiece :=
+  e.lift (fun e ↦ SingleEdgePiece.withOrientation e a) (by
+    intro _ _ h
+    obtain rfl | rfl := SingleEdgePiece.equiv_iff.1 h <;>
+    simp
+  )
+
+/-- Returns the permutation of edge pieces resulting from flipping a given edge. -/
+def flipEquiv (e : SingleEdge) : Equiv.Perm SingleEdgePiece :=
+  e.lift (fun e ↦ Equiv.swap e e.flip) (by
+    intro _ _ h
+    obtain rfl | rfl := SingleEdgePiece.equiv_iff.1 h
+    · rfl
+    · dsimp
+      rw [Equiv.swap_comm]
+  )
+
+@[simp]
+theorem flipEquiv_mk (e : SingleEdgePiece) : flipEquiv ⟦e⟧ = Equiv.swap e e.flip :=
+  rfl
+
+theorem flipEquiv_of_ne {e : SingleEdge} {a : SingleEdgePiece} : e ≠ ⟦a⟧ → e.flipEquiv a = a := by
+  refine e.inductionOn ?_
+  intro e he
+  rw [ne_eq, SingleEdge.eq, @comm _ (· ≈ ·), SingleEdgePiece.equiv_iff, not_or] at he
+  rw [flipEquiv_mk, Equiv.swap_apply_of_ne_of_ne he.1 he.2]
+
+@[simp]
+theorem mk_flipEquiv (e : SingleEdge) (a : SingleEdgePiece) : ⟦e.flipEquiv a⟧ = (⟦a⟧ : SingleEdge) := by
+  obtain rfl | ha := eq_or_ne e ⟦a⟧
+  · simp
+  · rw [flipEquiv_of_ne ha]
+
+@[simp]
+theorem flipEquiv_flip (e : SingleEdge) (a : SingleEdgePiece) : e.flipEquiv a.flip = (e.flipEquiv a).flip := by
+  obtain rfl | ha := eq_or_ne e ⟦a⟧
+  · simp
+  · rw [flipEquiv_of_ne, flipEquiv_of_ne ha]
+    rwa [mk_flip]
+
+@[simp]
+theorem flipEquiv_flipEquiv (e : SingleEdge) : e.flipEquiv * e.flipEquiv = 1 := by
+  refine e.inductionOn ?_
+  intro e
+  rw [flipEquiv_mk, Equiv.swap_mul_self]
+
+end SingleEdge
+
+/-
+
+
+
+
+single edge ends here
+
+
+
+
+-/
+
 
 /-- An edge piece is an ordered pair of adjacent orientations along with an index. -/
 structure EdgePiece (n : {m : ℕ // m ≥ 3}) where
