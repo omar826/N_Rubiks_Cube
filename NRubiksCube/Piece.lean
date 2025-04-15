@@ -12,6 +12,7 @@ import NRubiksCube.Equiv
 import NRubiksCube.Orientation
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Multiset.Basic
+
 namespace Orientation
 
 /-- A corner piece is an ordered triple of pairwise adjacent orientations, oriented as the standard
@@ -742,8 +743,120 @@ single edge ends here
 
 
 -/
+inductive EdgeType | A | B
+  deriving DecidableEq, Fintype, Repr, Inhabited
+
+structure EdgePiece where
+  fst : Orientation
+  snd : Orientation
+  isAdjacent : IsAdjacent fst snd
+  piece_type : EdgeType
+deriving DecidableEq, Fintype, Repr
+
+namespace EdgePiece
+
+instance : Inhabited EdgePiece where
+  default := ⟨U, B, by decide, EdgeType.A⟩
 
 
+theorem ne (e : EdgePiece) : e.fst ≠ e.snd := e.isAdjacent.ne
+
+theorem ext {e₁ e₂ : EdgePiece}
+    (h₁ : e₁.fst = e₂.fst) (h₂ : e₁.snd = e₂.snd) (ht : e₁.piece_type = e₂.piece_type) :
+    e₁ = e₂ := by
+  cases e₁; cases e₂; simp_all -- Use simp_all to handle field equalities
+
+theorem ext_iff {e₁ e₂ : EdgePiece} :
+    e₁ = e₂ ↔ e₁.fst = e₂.fst ∧ e₁.snd = e₂.snd ∧ e₁.piece_type = e₂.piece_type := by
+  constructor
+  · rintro rfl; exact ⟨rfl, rfl, rfl⟩
+  · rintro ⟨h₁, h₂, ht⟩; exact ext h₁ h₂ ht
+
+@[simps fst snd piece_type] -- Auto-generate theorems for field access
+def flip (e : EdgePiece) : EdgePiece :=
+  ⟨e.snd, e.fst, e.isAdjacent.symm, e.piece_type⟩
+
+theorem flip_mk (a b : Orientation) (h : IsAdjacent a b) (t : EdgeType) :
+    flip ⟨a, b, h, t⟩ = ⟨b, a, h.symm, t⟩ :=
+  rfl
+
+@[simp]
+theorem flip₂ (e : EdgePiece) : e.flip.flip = e := by
+  cases e; rfl -- Use `cases` to destruct the structure and simplify
+
+
+@[simp]
+theorem flip_inj {e₁ e₂ : EdgePiece} : e₁.flip = e₂.flip ↔ e₁ = e₂ :=
+  Function.Injective.eq_iff (Function.LeftInverse.injective flip₂) -- Use flip₂ as left inverse
+
+theorem flip_ne (e : EdgePiece) : e.flip ≠ e := by
+  intro h_eq
+  have h_fst := congr_arg EdgePiece.fst h_eq
+  simp at h_fst -- e.snd = e.fst
+  exact e.ne h_fst.symm -- Contradicts e.fst ≠ e.snd
+
+def toFinset (e : EdgePiece) : Finset Orientation :=
+  {e.fst, e.snd} -- Uses implicit conversion from Multiset + Nodup proof
+
+/-- The underlying multiset `val` of the `toFinset` result. -/
+theorem toFinset_val (e : EdgePiece) : e.toFinset.val = {e.fst, e.snd} := by
+  sorry
+
+theorem mem_toFinset {a : Orientation} {e : EdgePiece} :
+    a ∈ e.toFinset ↔ a = e.fst ∨ a = e.snd := by
+  simp [toFinset, Finset.mem_insert, Finset.mem_singleton]
+
+/-- Applying `flip` does not change the `Finset` of orientations. -/
+@[simp]
+theorem flip_toFinset (e : EdgePiece) : e.flip.toFinset = e.toFinset := by
+  ext x; simp [mem_toFinset, flip_fst, flip_snd, or_comm]
+
+/-- Defines the equivalence relation for `EdgePiece`s. Two pieces are
+    equivalent if they have the same pair of orientations (colors),
+    regardless of their `piece_type` (A/B) or internal order (fst/snd).
+    This groups the two physical pieces of a coupled pair into the same class. -/
+instance instSetoid : Setoid EdgePiece where
+  r e₁ e₂ := e₁.toFinset = e₂.toFinset
+  iseqv := by -- Standard proof for equivalence relation based on equality
+    constructor
+    · intro x; rfl
+    · intro x y h; exact h.symm
+    · intro x y z h₁ h₂; exact h₁.trans h₂
+
+/-- The definition of the equivalence relation `≈` on `EdgePiece`. -/
+theorem equiv_def {e₁ e₂ : EdgePiece} : e₁ ≈ e₂ ↔ e₁.toFinset = e₂.toFinset :=
+  Iff.rfl
+
+-- Optional: A theorem connecting the equivalence relation to the structure fields.
+-- Note: This does *not* imply e₁.piece_type = e₂.piece_type.
+theorem equiv_iff_orientations {e₁ e₂ : EdgePiece} :
+    e₁ ≈ e₂ ↔ (e₁.fst = e₂.fst ∧ e₁.snd = e₂.snd) ∨ (e₁.fst = e₂.snd ∧ e₁.snd = e₂.fst) := by
+  sorry
+
+end EdgePiece
+
+/-- Represents a physical edge location on the cube, abstracting away the
+    specific orientation (fst/snd order) and the piece type (A/B) of the
+    `EdgePiece` currently occupying it.
+    Defined as the Quotient of `EdgePiece` by the `Setoid` instance based on `toFinset`.
+    `⟦e⟧` denotes the `Edge` corresponding to the `EdgePiece` `e`. -/
+def Edge : Type := Quotient EdgePiece.instSetoid
+
+namespace Edge
+
+/-- Provides a default `Edge` instance. -/
+instance : Inhabited Edge :=
+  Quotient.instInhabitedQuotient _
+
+/-- Two `Edge`s `⟦e₁⟧` and `⟦e₂⟧` are equal if and only if the underlying
+    `EdgePiece`s `e₁` and `e₂` are equivalent (`e₁ ≈ e₂`), meaning they
+    have the same `toFinset`. -/
+@[simp]
+protected theorem eq {e₁ e₂ : EdgePiece} : (⟦e₁⟧ : Edge) = ⟦e₂⟧ ↔ e₁ ≈ e₂ :=
+  Quotient.eq -- Fundamental property of quotients
+
+end Edge
+/-
 /-- An edge piece is an ordered pair of adjacent orientations along with an index. -/
 structure EdgePiece (n : {m : ℕ // m ≥ 3}) where
   fst : Orientation
@@ -877,7 +990,7 @@ theorem eq {n : {m : ℕ // m ≥ 3}} (e₁ e₂ : EdgePiece n) : (⟦e₁⟧ : 
   exact EdgePiece.equiv_def
 
 end Edge
-
+-/
 /-- The edges of concentric squares of centre pieces. Note that such
 concentric squares contain edges only when the side length of the square
 is atleast 3 (which requires n atleast 5).
