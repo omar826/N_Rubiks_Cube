@@ -1,7 +1,8 @@
 inductive Color
 | white | yellow | red | orange | blue | green
 deriving Repr
-
+def repeatString (s : String) (n : Nat) : String :=
+  String.join (List.replicate n s)
 structure Sticker where
   color : Color
 deriving Repr
@@ -45,9 +46,11 @@ def solvedCube (n : Nat) : Cube n :=
 
 -- should work for any n
 def printUnfoldedCube {n : Nat} (cube : Cube n) : IO Unit := do
-  -- Print the top face (left-aligned)
+  -- Print the top face
+  let spacer := repeatString "⬛" n
   for row in cube.top.stickers do
-    IO.println (String.intercalate "" (row.toList.map (fun s => colorToEmoji s.color)))
+    let rowstr := String.intercalate "" (row.toList.map (fun s => colorToEmoji s.color))
+    IO.println (spacer ++ " " ++ rowstr)
 
 -- Print blank line
   IO.println ""
@@ -63,7 +66,8 @@ def printUnfoldedCube {n : Nat} (cube : Cube n) : IO Unit := do
 
   -- Print the bottom face (left-aligned)
   for row in cube.bottom.stickers do
-    IO.println (String.intercalate "" (row.toList.map (fun s => colorToEmoji s.color)))
+    let rowstr := String.intercalate "" (row.toList.map (fun s => colorToEmoji s.color))
+    IO.println (spacer ++ " " ++ rowstr)
 
 #eval printUnfoldedCube (solvedCube 2)
 
