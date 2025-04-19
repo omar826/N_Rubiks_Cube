@@ -4,6 +4,16 @@ import Mathlib.GroupTheory.Perm.Sign
 import Mathlib.Data.Fintype.Units
 import NRubiksCube.Piece
 
+/-!
+Defines the type of "Illegal n×n×n Rubik's cubes". Thes are all possible n×n×n Rubik's cubes that
+can be assembled by using the pieces. In particular, there is no regard for solvability, and
+"impossible" positions like a rotated corner or flipped edge are allowed.
+
+We define a group structure in `BigIllegalRubik`, and define the "Rubik's cube invariant", a
+surjective group homomorphism into `TODO` whose kernel will be shown to consist of
+precisely the solvable Rubik's cubes.
+-/
+
 /-- The map `1 → 0`, `-1 → 1`. -/
 def Units.toZMod (x : ℤˣ) : ZMod 2 :=
   if x = 1 then 0 else 1
