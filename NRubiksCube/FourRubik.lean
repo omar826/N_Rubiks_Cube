@@ -1,20 +1,22 @@
-import Mathlib.GroupTheory.Perm.Basic -- For Equiv.Perm
-import Mathlib.Data.ZMod.Defs       -- For ZMod 2, ZMod 3
+import Mathlib.GroupTheory.Perm.Basic
+import Mathlib.Data.ZMod.Defs
 import Mathlib.Data.Fin.Basic
 import Mathlib.Data.Nat.Basic
 import Mathlib.Data.Vector.Basic
 import Mathlib.Data.List.FinRange
-import Mathlib.Tactic.Linarith -- Make sure you have this import!
-import NRubiksCube.Orientation -- Assuming Orientation, ZMod imports are handled here
-import NRubiksCube.Piece      -- Assuming CornerPiece, EdgePiece etc.
+import Mathlib.Tactic.Linarith
+import NRubiksCube.Orientation
+import NRubiksCube.Piece
 import NRubiksCube.Equiv
 import NRubiksCube.visual
+import Mathlib.Data.Array.Defs
 
 open Orientation
 open Equiv
 namespace FourRubik
 
 -- ## Index Types for Piece Slots
+
 /-- There are 8 corner positions. -/
 abbrev CornerSlot : Type := Fin 8
 
@@ -26,12 +28,12 @@ abbrev CenterSlot : Type := Fin 24
 
 -- ## Cube State Structure (S_Conf)
 structure CubeState where
-  corner_perm : Equiv.Perm CornerSlot
+  corner_perm : Equiv.Perm CornerSlot -- permutation of corner pieces
   edge_perm : Equiv.Perm EdgeSlot
   center_perm : Equiv.Perm CenterSlot
-  corner_ori : CornerSlot → ZMod 3
+  corner_ori : CornerSlot → ZMod 3 -- (ℤ₃)⁸
   edge_ori : EdgeSlot → ZMod 2
-  -- Removed deriving Repr
+
 
 def initialState : CubeState where
   corner_perm := 1
@@ -46,20 +48,17 @@ inductive BasicMove
   | CR | CL | CU | CD | CF | CB -- Inner slices adjacent to the corresponding outer face
   deriving Fintype, DecidableEq, Repr
 
+
+--Note: a type has Fintype if it has a finite number of elements.
+
 /-!
 ## Step 1: Indexing Scheme and Constants
 
-We define constants for the indices corresponding to specific physical locations.
-This mapping is crucial for defining move permutations.
+**Convention:**
 
-**Convention:** White Up, Red Front. Numbering generally follows diagrams
-in `4_solvabiltiy.pdf` where available, starting top-left and going clockwise
-on faces, then moving layer by layer. 'A'/'B' distinction for edges follows
-a consistent pattern (e.g., 'A' is one direction, 'B' the other). Center
-numbering is per face, e.g., top-left, top-right, bottom-left, bottom-right
-within the 2x2 block.
-
-This needs careful verification and consistency checking.
+Up - White
+Front - Red
+Right - Blue
 -/
 
 namespace Indexing
@@ -83,23 +82,86 @@ def d_face_corners : List CornerSlot := [c_dfl, c_drf, c_drb, c_dlb] -- 4, 5, 6,
 def f_face_corners : List CornerSlot := [c_ufl, c_urf, c_drf, c_dfl] -- 0, 1, 5, 4
 def b_face_corners : List CornerSlot := [c_urb, c_ulb, c_dlb, c_drb] -- 2, 3, 7, 6
 
+
+-- ### Orientation Delta Constants
+
+/-
+## Convention for Corners
+corners with white side - white side gets 0 then 1,2 clockwise
+corners with yellow side - yellow side gets 0 then 1,2 clockwise
+
+corner orientation: number on up/down face
+-/
+
+-- Corner twists for R move
+
+def r_move_corner_ori_delta (slot_before_move : CornerSlot) : ZMod 3 :=
+  if slot_before_move = c_urf then 2 -- 0 to 2 etc
+  else if slot_before_move = c_drf then 1
+  else if slot_before_move = c_drb then 2
+  else if slot_before_move = c_urb then 1
+  else 0
+
+-- Similarly define deltas for L, U, D, F, B moves...
+
+
+-- Helper to get sticker index for a corner based on the face being viewed
+
+def getCanonicalCornerColors (slot : CornerSlot) : Orientation × Orientation × Orientation :=
+  match slot.val with
+  | 0 => (U, F, L) -- UFL
+  | 1 => (U, R, F) -- URF
+  | 2 => (U, B, R) -- URB
+  | 3 => (U, L, B) -- ULB
+  | 4 => (D, L, F) -- DFL
+  | 5 => (D, F, R) -- DRF
+  | 6 => (D, R, B) -- DRB
+  | 7 => (D, B, L) -- DLB
+  | _ => (U, F, L) -- Should be unreachable
+
+def getCornerStickerIndex (slot : CornerSlot) (face : Orientation) : Fin 3 :=
+  let (c0, c1, _) := getCanonicalCornerColors slot
+  if face = c0 then 0
+  else if face = c1 then 1
+  else 2 -- Assumes face is one of c0, c1, c2
+
+-- Applies corner orientation value to determine visible sticker color.
+
+/-
+canonical - the piece
+ori_val - orientation of the piece
+sticker_idx - which sticker we want to know the color of
+-/
+
+def applyCornerOrientation (canonical : Orientation × Orientation × Orientation)
+    (ori_val : ZMod 3) (sticker_idx : Fin 3) : Orientation :=
+  let (c0, c1, c2) := canonical
+  match ori_val.val with
+  | 0 => -- No twist
+    match sticker_idx.val with | 0 => c0 | 1 => c1 | 2 => c2 | _ => c0
+  | 1 => -- One CW twist (orig 1->pos 0, orig 2->pos 1, orig 0->pos 2)
+    match sticker_idx.val with | 0 => c1 | 1 => c2 | 2 => c0 | _ => c1
+  | 2 => -- Two CW twists (orig 2->pos 0, orig 0->pos 1, orig 1->pos 2)
+    match sticker_idx.val with | 0 => c2 | 1 => c0 | 2 => c1 | _ => c2
+  | _ => c0 -- Unreachable for ZMod 3
+
+
 -- ### Edge Slots (Fin 24)
 -- Using 2*i for type A, 2*i+1 for type B, based on 12 physical locations (0-11)
 -- UF(0), UR(1), UB(2), UL(3) - Top layer F->R->B->L
--- FL(4), FR(5), BR(6), BL(7) - Middle layer slice (viewed from front) F->R->B->L
+-- FL(4), FR(5), BR(6), BL(7) - Middle layer slice F->R->B->L
 -- DF(8), DR(9), DB(10), DL(11) - Bottom layer F->R->B->L
 
--- Map physical location + type to Fin 24 index
 -- Example: UR edge, type A -> Slot index 2*1 + 0 = 2
 -- Example: UR edge, type B -> Slot index 2*1 + 1 = 3
 def edgeSlot (loc : Fin 12) (type : Orientation.EdgeType) : EdgeSlot :=
   ⟨2 * loc.val + if type = Orientation.EdgeType.A then 0 else 1,
    by -- Proof that the value is < 24
-      split_ifs with h_type -- Creates two goals, one for each branch of the 'if'
+      split_ifs with h_type -- Creates two goals based on if
       · -- Goal 1: Assumes type = EdgeType.A, prove 2 * loc.val + 0 < 24
-        linarith [loc.isLt] -- Uses loc.val < 12. 2*11 + 0 = 22 < 24. This should work.
+        linarith [loc.isLt]
       · -- Goal 2: Assumes type ≠ EdgeType.A, prove 2 * loc.val + 1 < 24
-        linarith [loc.isLt] -- Uses loc.val < 12. 2*11 + 1 = 23 < 24. This should also work.
+        linarith [loc.isLt]
    ⟩
 -- Define constants for specific locations (A type)
 def e_uf_a : EdgeSlot := edgeSlot 0 EdgeType.A  -- 0
@@ -134,9 +196,7 @@ def e_dl_b : EdgeSlot := edgeSlot 11 EdgeType.B -- 23
 -- Cycle 2 (Type B): 3 -> 11 -> 19 -> 13 -> 3
 def r_face_edges_a : List EdgeSlot := [e_ur_a, e_fr_a, e_dr_a, e_br_a]
 def r_face_edges_b : List EdgeSlot := [e_ur_b, e_fr_b, e_dr_b, e_br_b]
--- Similarly define lists for L, U, D, F, B faces...
-
-
+-- define lists for L, U, D, F, B faces... (toDo)
 
 -- ### Center Slots (Fin 24)
 -- Group by face (U=0-3, L=4-7, F=8-11, R=12-15, B=16-19, D=20-23)
@@ -157,11 +217,7 @@ def z_r_2 := z_r_ur
 def z_r_3 := z_r_dr
 def z_r_4 := z_r_dl -- Use 1/2/3/4 locally
 
--- Centers affected by CR inner slice move (F=8-11, U=0-3, B=16-19, D=20-23)
--- Indices affected: F(UR,DR)=9,10; U(RF,RB)=1,2?? No, U(RB,RF)? U(UR,DR)=1,2; B(UR,DR)=17,18; D(UR,DR)=21,22 ?
--- This needs careful visualization of the slice relative to faces. CR affects centers on F, U, B, D faces.
--- Let's assume it affects the right-hand column of F/U/B/D faces.
--- F(UR,DR) = 9, 11 ; U(UR,DR) = 1, 3 ; B(UL,DL) = 17, 19 ; D(UR,DR) = 21, 23
+
 def cr_slice_centers : List CenterSlot := [
   centerSlot Orientation.F 1, centerSlot Orientation.F 3, -- F_UR, F_DR
   centerSlot Orientation.U 1, centerSlot Orientation.U 3, -- U_UR, U_DR
@@ -171,20 +227,8 @@ def cr_slice_centers : List CenterSlot := [
 -- Similarly define lists for other slices...
 
 
--- ### Orientation Delta Constants
-
--- Corner twists for R move (see previous implementation)
-def r_move_corner_ori_delta (slot_before_move : CornerSlot) : ZMod 3 :=
-  if slot_before_move = c_urf then 1
-  else if slot_before_move = c_drf then 2 -- -1
-  else if slot_before_move = c_drb then 1
-  else if slot_before_move = c_urb then 2 -- -1
-  else 0
--- Similarly define deltas for L, U, D, F, B moves...
 
 
--- Next steps: Use Indexing constants to define permutation constants (Step 2)
--- Then implement apply_move (Step 3)
 
 /-! ### Indices for CR Move ### -/
 
@@ -195,9 +239,7 @@ def r_move_corner_ori_delta (slot_before_move : CornerSlot) : ZMod 3 :=
 def cr_slice_edges_a : List EdgeSlot := [e_uf_a, e_ub_a, e_db_a, e_df_a] -- 0, 4, 20, 16
 def cr_slice_edges_b : List EdgeSlot := [e_uf_b, e_ub_b, e_db_b, e_df_b] -- 1, 5, 21, 17
 
--- CR affects Centers: F(UR,DR)=9,11; U(UR,DR)=1,3; B(UL,DL)=17,19??; D(UR,DR)=21,23?
--- Let's re-verify center mapping for CR slice. Imagine turning the slice between R and L.
--- It moves centers on the U, F, D, B faces.
+
 -- U Face: Affects UR (1) and DR (3) -> Indices 1, 3
 -- F Face: Affects UR (1) and DR (3) -> Indices 9, 11
 -- D Face: Affects UR (1) and DR (3) -> Indices 21, 23
@@ -213,25 +255,22 @@ def z_d_ur : CenterSlot := centerSlot Orientation.D 1 -- 21
 def z_d_dr : CenterSlot := centerSlot Orientation.D 3 -- 23
 def z_b_ul : CenterSlot := centerSlot Orientation.B 0 -- 16 (Check B face indexing: 0=UL?)
 def z_b_dl : CenterSlot := centerSlot Orientation.B 2 -- 18 (Check B face indexing: 2=DL?)
--- Let's assume B face indices are 0=UL, 1=UR, 2=DR, 3=DL
--- Then B_UL is 16, B_DL is 18.
--- Cycle 1: 1 -> 9 -> 21 -> 16 -> 1
--- Cycle 2: 3 -> 11 -> 23 -> 18 -> 3
-def r_move_corner_perm : Perm CornerSlot :=
-  swap c_urf c_urb * swap c_urf c_drb * swap c_urf c_drf
-def r_move_edge_perm : Perm EdgeSlot :=
-  (swap e_ur_a e_br_a * swap e_ur_a e_dr_a * swap e_ur_a e_fr_a) *
-  (swap e_ur_b e_br_b * swap e_ur_b e_dr_b * swap e_ur_b e_fr_b)
 
-/-- The permutation of center slots caused by a clockwise R face turn.
-    Cycles the 4 center slots on the R face.
-    Cycle: R_UL(12) → R_UR(13) → R_DR(14) → R_DL(15) → R_UL(12) -/
-def r_move_center_perm : Perm CenterSlot :=
-  swap z_r_1 z_r_4 * swap z_r_1 z_r_3 * swap z_r_1 z_r_2
 
 def cr_slice_centers1 : List CenterSlot := [z_u_ur, z_f_ur, z_d_ur, z_b_ul] -- 1, 9, 21, 16
 def cr_slice_centers2 : List CenterSlot := [z_u_dr, z_f_dr, z_d_dr, z_b_dl] -- 3, 11, 23, 18
 
+-- Define Center indices for L, F, B faces too
+def z_l_ul : CenterSlot := centerSlot Orientation.L 0 -- 4
+def z_l_ur : CenterSlot := centerSlot Orientation.L 1 -- 5
+def z_l_dr : CenterSlot := centerSlot Orientation.L 2 -- 6
+def z_l_dl : CenterSlot := centerSlot Orientation.L 3 -- 7
+def z_f_ul : CenterSlot := centerSlot Orientation.F 0 -- 8
+def z_f_dl : CenterSlot := centerSlot Orientation.F 3 -- 11
+def z_b_ur : CenterSlot := centerSlot Orientation.B 1 -- 17
+def z_b_dr : CenterSlot := centerSlot Orientation.B 2 -- 18
+def z_d_ul : CenterSlot := centerSlot Orientation.D 0 -- 20
+def z_d_dl : CenterSlot := centerSlot Orientation.D 3 -- 23
 
 /-! ### Orientation Deltas ### -/
 -- (Keep r_move_corner_ori_delta from previous step)
@@ -240,6 +279,26 @@ def cr_slice_centers2 : List CenterSlot := [z_u_dr, z_f_dr, z_d_dr, z_b_dl] -- 3
 def cr_move_edge_ori_delta (slot_before_move : EdgeSlot) : ZMod 2 :=
   -- Check if the slot is one of the 8 involved in the CR slice turn
   if slot_before_move ∈ cr_slice_edges_a || slot_before_move ∈ cr_slice_edges_b then 1 else 0
+
+
+----------------------------------------STOP----------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /-! ### Indices for U Move ### -/
@@ -269,53 +328,9 @@ def u_move_corner_ori_delta (_slot_before_move : CornerSlot) : ZMod 3 := 0
 -- U move does not flip edges
 def u_move_edge_ori_delta (_slot_before_move : EdgeSlot) : ZMod 2 := 0
 
-  -- Define Center indices for L, F, B faces too
-  def z_l_ul : CenterSlot := centerSlot Orientation.L 0 -- 4
-  def z_l_ur : CenterSlot := centerSlot Orientation.L 1 -- 5
-  def z_l_dr : CenterSlot := centerSlot Orientation.L 2 -- 6
-  def z_l_dl : CenterSlot := centerSlot Orientation.L 3 -- 7
-  def z_f_ul : CenterSlot := centerSlot Orientation.F 0 -- 8
-  def z_f_dl : CenterSlot := centerSlot Orientation.F 3 -- 11
-  def z_b_ur : CenterSlot := centerSlot Orientation.B 1 -- 17
-  def z_b_dr : CenterSlot := centerSlot Orientation.B 2 -- 18
-  def z_d_ul : CenterSlot := centerSlot Orientation.D 0 -- 20
-  def z_d_dl : CenterSlot := centerSlot Orientation.D 3 -- 23
--- Helper to get sticker index for a corner based on the face being viewed
-  def getCornerStickerIndex (cornerSlot : CornerSlot) (face : Orientation) : Fin 3 :=
-    -- Example: UFL (Slot 0) has orientations (U, F, L) in some canonical order
-    -- Let's assume solved piece order is U/D, F/B, L/R
-    match cornerSlot.val with
-    -- UFL (0): U, F, L -> 0, 1, 2
-    | 0 => if face = U then 0 else if face = F then 1 else 2
-    -- URF (1): U, R, F -> 0, 2, 1 (Note R=2, F=1)
-    | 1 => if face = U then 0 else if face = R then 2 else 1
-    -- URB (2): U, B, R -> 0, 1, 2
-    | 2 => if face = U then 0 else if face = B then 1 else 2
-    -- ULB (3): U, L, B -> 0, 2, 1 (Note L=2, B=1)
-    | 3 => if face = U then 0 else if face = L then 2 else 1
-    -- DFL (4): D, F, L -> 0, 1, 2
-    | 4 => if face = D then 0 else if face = F then 1 else 2
-    -- DRF (5): D, R, F -> 0, 2, 1
-    | 5 => if face = D then 0 else if face = R then 2 else 1
-    -- DRB (6): D, B, R -> 0, 1, 2
-    | 6 => if face = D then 0 else if face = B then 1 else 2
-    -- DLB (7): D, L, B -> 0, 2, 1
-    | 7 => if face = D then 0 else if face = L then 2 else 1
-    | _ => 0 -- Should be unreachable
 
 
 
-def getCanonicalCornerColors (slot : CornerSlot) : Orientation × Orientation × Orientation :=
-  match slot.val with
-  | 0 => (U, F, L) -- UFL
-  | 1 => (U, F, R) -- URF (Note: PDF convention might be U,R,F - order matters!) Let's stick to U/D, F/B, L/R for consistency
-  | 2 => (U, B, R) -- URB
-  | 3 => (U, B, L) -- ULB
-  | 4 => (D, F, L) -- DFL
-  | 5 => (D, F, R) -- DRF
-  | 6 => (D, B, R) -- DRB
-  | 7 => (D, B, L) -- DLB
-  | _ => (U, F, L) -- Should be unreachable
 
 /-- Returns the two canonical orientations (colors) of an edge piece
     given its solved slot index. Note: Slots 2*i and 2*i+1 have the same colors.
@@ -361,35 +376,7 @@ def getCanonicalCenterColor (slot : CenterSlot) : Orientation :=
   else if slot.val < 20 then B -- Slots 16-19 are B face
   else D -- Slots 20-23 are D face
 
-/-- Applies corner orientation value to determine visible sticker color.
-    Args:
-      canonical: The tuple of 3 orientations in solved state (U/D, F/B, L/R order).
-      ori_val: The current orientation value (0, 1, or 2 clockwise twists).
-      sticker_idx: Which sticker face we want to know the color of (0, 1, or 2).
-    Returns: The Orientation (color) visible at that sticker index. -/
-def applyCornerOrientation (canonical : Orientation × Orientation × Orientation)
-    (ori_val : ZMod 3) (sticker_idx : Fin 3) : Orientation :=
-  let (c1, c2, c3) := canonical -- Unpack for easier access (c1=U/D, c2=F/B, c3=L/R)
-  match ori_val.val with -- Match on the Nat value 0, 1, or 2
-  | 0 => -- No twist
-    match sticker_idx.val with
-    | 0 => c1
-    | 1 => c2
-    | 2 => c3
-    | _ => c1 -- Unreachable for Fin 3
-  | 1 => -- One clockwise twist (0->1, 1->2, 2->0)
-    match sticker_idx.val with
-    | 0 => c3 -- Sticker 0 now shows color originally at index 2
-    | 1 => c1 -- Sticker 1 now shows color originally at index 0
-    | 2 => c2 -- Sticker 2 now shows color originally at index 1
-    | _ => c3 -- Unreachable
-  | 2 => -- Two clockwise twists (0->2, 1->0, 2->1)
-    match sticker_idx.val with
-    | 0 => c2 -- Sticker 0 now shows color originally at index 1
-    | 1 => c3 -- Sticker 1 now shows color originally at index 2
-    | 2 => c1 -- Sticker 2 now shows color originally at index 0
-    | _ => c2 -- Unreachable
-  | _ => c1 -- Unreachable for ZMod 3
+
 
 /-- Applies edge orientation value to determine visible sticker color.
     Args:
@@ -420,23 +407,40 @@ namespace MoveImpl
 open Indexing -- Make constants visible
 open Equiv -- Make Perm and swap visible
 
+--## Permutations for R Move
+-- Let's assume B face indices are 0=UL, 1=UR, 2=DR, 3=DL
+-- Then B_UL is 16, B_DL is 18.
+-- Cycle 1: 1 -> 9 -> 21 -> 16 -> 1
+-- Cycle 2: 3 -> 11 -> 23 -> 18 -> 3
+def r_move_corner_perm : Perm CornerSlot :=
+  swap c_urf c_drf * swap c_urf c_drb * swap c_urf c_urb
+def r_move_edge_perm : Perm EdgeSlot :=
+  (swap e_ur_b e_fr_b * swap e_ur_b e_dr_b * swap e_ur_b e_br_b)
+  *(swap e_ur_a e_fr_a * swap e_ur_a e_dr_a * swap e_ur_a e_br_a)
 
+
+/-- The permutation of center slots caused by a clockwise R face turn.
+    Cycles the 4 center slots on the R face.
+    Cycle: R_UL(12) → R_UR(13) → R_DR(14) → R_DL(15) → R_UL(12) -/
+def r_move_center_perm : Perm CenterSlot :=
+  swap z_r_1 z_r_2 * swap z_r_1 z_r_3 * swap z_r_1 z_r_4
 
 -- ## Permutations for U Move
 
 -- Cycle: 0 → 1 → 2 → 3 → 0
 def u_move_corner_perm : Perm CornerSlot :=
-  swap c_ufl c_ulb * swap c_ufl c_urb * swap c_ufl c_urf
+  swap c_ufl c_urf * swap c_ufl c_urb * swap c_ufl c_ulb
 
 -- Cycle A: 0 → 2 → 4 → 6 → 0
 -- Cycle B: 1 → 3 → 5 → 7 → 1
 def u_move_edge_perm : Perm EdgeSlot :=
-  (swap e_uf_a e_ul_a * swap e_uf_a e_ub_a * swap e_uf_a e_ur_a) *
-  (swap e_uf_b e_ul_b * swap e_uf_b e_ub_b * swap e_uf_b e_ur_b)
+  ( swap e_uf_b e_ur_b * swap e_uf_b e_ub_b * swap e_uf_b e_ul_b)*
+  ( swap e_uf_a e_ur_a* swap e_uf_a e_ub_a * swap e_uf_a e_ul_a)
+
 
 -- Cycle: 0 → 1 → 2 → 3 → 0
 def u_move_center_perm : Perm CenterSlot :=
-  swap z_u_ul z_u_dl * swap z_u_ul z_u_dr * swap z_u_ul z_u_ur
+  swap z_u_ul z_u_ur * swap z_u_ul z_u_dr * swap z_u_ul z_u_dl
 
 open Indexing -- Make constants visible
 
@@ -446,15 +450,16 @@ def cr_move_corner_perm : Equiv.Perm CornerSlot := 1 -- CR doesn't affect corner
 -- Cycle 1: 0 -> 4 -> 20 -> 16 -> 0
 -- Cycle 2: 1 -> 5 -> 21 -> 17 -> 1
 def cr_move_edge_perm : Perm EdgeSlot :=
-  swap e_uf_a e_df_b * swap e_uf_a e_db_a * swap e_uf_a e_ub_b -- Implements 0 → 5 → 20 → 17 → 0
+  swap e_uf_a e_ub_b * swap e_uf_a e_db_a * swap e_uf_a e_df_b -- Implements 0 → 5 → 20 → 17 → 0
 
 /-- The permutation of center slots caused by a clockwise CR slice turn.
     Cycles two groups of 4 centers on U, F, D, B faces.
     Cycle 1: U_UR(1) → F_UR(9) → D_UR(21) → B_UL(16) → U_UR(1)
     Cycle 2: U_DR(3) → F_DR(11) → D_DR(23) → B_DL(19) → U_DR(3) -/
-def cr_move_center_perm : Perm CenterSlot := -- Re-verified indices based on conventions
-  (swap z_u_ur z_b_ul * swap z_u_ur z_d_ur * swap z_u_ur z_f_ur) *
-  (swap z_u_dr z_b_dl * swap z_u_dr z_d_dr * swap z_u_dr z_f_dr)
+def cr_move_center_perm : Perm CenterSlot :=
+  ( swap z_u_dr z_f_dr* swap z_u_dr z_d_dr * swap z_u_dr z_b_dl) *
+  ( swap z_u_ur z_f_ur* swap z_u_ur z_d_ur * swap z_u_ur z_b_ul)
+
 
 def rotY_corner_perm : Perm CornerSlot :=
   (swap c_ufl c_ulb * swap c_ufl c_urb * swap c_ufl c_urf) * -- Top layer 0->1->2->3->0
@@ -482,16 +487,16 @@ def rotY_center_perm : Perm CenterSlot :=
 def apply_move (m : BasicMove) (s : CubeState) : CubeState :=
   match m with
   | BasicMove.R => -- (Keep implementation from previous step)
-    { corner_perm := s.corner_perm * r_move_corner_perm,
-      edge_perm   := s.edge_perm * r_move_edge_perm,
-      center_perm := s.center_perm * r_move_center_perm,
+    { corner_perm := r_move_corner_perm * s.corner_perm,
+      edge_perm   := r_move_edge_perm * s.edge_perm,
+      center_perm := r_move_center_perm * s.center_perm,
       corner_ori  := fun i => s.corner_ori (r_move_corner_perm⁻¹ i) + r_move_corner_ori_delta (r_move_corner_perm⁻¹ i),
       edge_ori    := fun i => s.edge_ori (r_move_edge_perm⁻¹ i)
     }
   | BasicMove.CR =>
-    { corner_perm := s.corner_perm * cr_move_corner_perm, -- = s.corner_perm * 1
-      edge_perm   := s.edge_perm * cr_move_edge_perm,
-      center_perm := s.center_perm * cr_move_center_perm,
+    { corner_perm := cr_move_corner_perm * s.corner_perm, -- = s.corner_perm * 1
+      edge_perm   := cr_move_edge_perm * s.edge_perm,
+      center_perm := cr_move_center_perm * s.center_perm,
       -- Corners not affected, ori function remains the same relative to permuted slots
       corner_ori  := fun i => s.corner_ori (cr_move_corner_perm⁻¹ i), -- = s.corner_ori i
       -- Edges are permuted AND flipped
@@ -499,9 +504,9 @@ def apply_move (m : BasicMove) (s : CubeState) : CubeState :=
     }
   | BasicMove.L => s
   | BasicMove.U =>
-    { corner_perm := s.corner_perm * u_move_corner_perm,
-      edge_perm   := s.edge_perm * u_move_edge_perm,
-      center_perm := s.center_perm * u_move_center_perm,
+    { corner_perm := u_move_corner_perm * s.corner_perm,
+      edge_perm   := u_move_edge_perm * s.edge_perm,
+      center_perm := u_move_center_perm * s.center_perm,
       -- U move does not twist corners, delta is 0
       corner_ori  := fun i => s.corner_ori (u_move_corner_perm⁻¹ i), -- + u_move_corner_ori_delta (u_move_corner_perm⁻¹ i) = + 0
       -- U move does not flip edges, delta is 0
@@ -536,7 +541,7 @@ namespace Visual
 
 
 -- Represents which sticker of a piece we're looking at
--- Corner: 0=Up/Down face sticker, 1=Side1, 2=Side2 (needs consistent def)
+-- Corner: 0=Up/Down face sticker, 1=Side1, 2=Side2
 
 -- Union type for different piece slots + sticker index
 inductive PieceStickerID where
@@ -775,9 +780,87 @@ def view_after_R : IO Unit := printUnfoldedCube (stateToVisual (apply_move Basic
 def view_after_U : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.U initialState))
 def view_after_CR : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CR initialState))
 
+def apply_move_list (moves : List BasicMove) (start_state : CubeState) : CubeState :=
+  List.foldl (fun s m => apply_move m s) start_state moves
+def view_URUinv : IO Unit := do
+  let moves : List BasicMove := [BasicMove.U, BasicMove.R, BasicMove.U, BasicMove.U, BasicMove.U]
+  let final_state := apply_move_list moves initialState
+  printUnfoldedCube (stateToVisual final_state)
+
 -- To run these (ensure all helpers like getEdgeStickerIndex are implemented):
 #eval view_initial
 #eval view_after_R
 #eval view_after_U
 #eval view_after_CR
+
+#eval view_URUinv
+
+#eval getCanonicalCornerColors c_urf
+
+#eval getCornerStickerIndex c_urf U
+#eval getCornerStickerIndex c_urf R
+#eval getCornerStickerIndex c_urf F
+
+#eval applyCornerOrientation (U, R, F) 0 (⟨0, by decide⟩ : Fin 3)
+#eval applyCornerOrientation (U, R, F) 1 (⟨0, by decide⟩ : Fin 3)
+#eval applyCornerOrientation (U, R, F) 1 (⟨1, by decide⟩ : Fin 3)
+
+-- Define the state after one R move
+def state_after_R := apply_move BasicMove.R initialState
+
+-- Check the orientation values for the affected slots
+-- Note: We check the orientation AT the destination slot index
+
+#eval state_after_R.corner_ori c_urf -- Slot 1 (Piece from DRF, delta +1). Expected: 1
+#eval state_after_R.corner_ori c_urb -- Slot 2 (Piece from URF, delta +2). Expected: 2
+#eval state_after_R.corner_ori c_drb -- Slot 6 (Piece from URB, delta +1). Expected: 1
+#eval state_after_R.corner_ori c_drf -- Slot 5 (Piece from DRB, delta +2). Expected: 2
+
+-- Check an unaffected corner slot
+#eval state_after_R.corner_ori c_ufl -- Slot 0 (Unaffected). Expected: 0
+
+#eval "--- Tracing Sticker U(3,3) after R Move ---"
+
+-- Define the state and location we are testing
+def loc_U33 : StickerLocation n_four := { face := U, row := ⟨3, by decide⟩, col := ⟨3, by decide⟩ }
+
+-- 1. What PieceStickerID does getSolvedPieceInfo return for this location?
+-- Expected: PieceStickerID.corner c_urf 0 (Corner slot 1, sticker index 0)
+#eval getSolvedPieceInfo loc_U33
+
+-- Assuming the above is correct (slot=1, sticker_idx=0), let's use these values:
+def test_slot : CornerSlot := c_urf -- Slot 1
+def test_sticker_idx : Fin 3 := ⟨0, by decide⟩ -- Sticker index 0
+
+-- 2. Which piece originally occupied the slot that moved into slot 1? (s.corner_perm⁻¹ slot)
+-- Expected: 5 (c_drf)
+def test_origin_slot := state_after_R.corner_perm⁻¹ test_slot
+#eval test_origin_slot
+
+-- 3. What are the canonical colors of that original piece (from slot 5)?
+-- Expected: (D, R, F)
+def test_canonical_colors := getCanonicalCornerColors test_origin_slot
+#eval test_canonical_colors
+
+-- 4. What is the orientation value stored AT the destination slot (slot 1) after the move?
+-- Expected: 1
+def test_ori_val := state_after_R.corner_ori test_slot
+#eval test_ori_val
+
+-- 5. What is the result of applying this orientation value (1) to the canonical colors ((D, R, F))
+--    for the target sticker index (0)?
+-- Expected: F (Green) - Because ori=1, idx=0 should return c2, which is F in (D, R, F)
+def test_final_orientation := applyCornerOrientation test_canonical_colors test_ori_val test_sticker_idx
+#eval test_final_orientation
+
+-- 6. What Visual.Color does the final Orientation (F) map to?
+-- Expected: Color.green
+def test_final_visual_color := mapOrientationToVisualColor test_final_orientation
+#eval test_final_visual_color
+
+-- 7. What is the final result of the complete getStickerVisualColor function?
+-- Expected: Color.green
+#eval getStickerVisualColor state_after_R loc_U33
+
+#eval "--- End Tracing ---"
 end FourRubik

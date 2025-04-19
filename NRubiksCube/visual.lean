@@ -43,6 +43,8 @@ def solvedCube (n : Nat) : Cube n :=
     top    := listToFace n (List.replicate n (List.replicate n Color.white)),
     bottom := listToFace n (List.replicate n (List.replicate n Color.yellow)) }
 
+  def flipRow (row : List Sticker) : List Sticker :=
+    row.reverse
 
 -- should work for any n
 def printUnfoldedCube {n : Nat} (cube : Cube n) : IO Unit := do
@@ -56,18 +58,23 @@ def printUnfoldedCube {n : Nat} (cube : Cube n) : IO Unit := do
   IO.println ""
 
   -- Print the middle row: left, front, right, and back faces side-by-side.
-  let faces := [cube.left, cube.front, cube.right, cube.back]
+  let faces := [
+  cube.left.stickers.map (·.toList),
+  cube.front.stickers.map (·.toList),
+  cube.right.stickers.map (fun row => flipRow (row.toList)),
+  cube.back.stickers.map (fun row => flipRow (row.toList))
+  ]
   for i in List.range n do
-    let row := faces.map (fun f => f.stickers[i]!.toList.map (fun s => colorToEmoji s.color))
+    let row := faces.map (fun face => face[i]!.map (fun s => colorToEmoji s.color))
     IO.println (String.intercalate " " (row.map (String.intercalate "")))
 
   -- Print blank line
   IO.println ""
 
   -- Print the bottom face (left-aligned)
-  for row in cube.bottom.stickers do
-    let rowstr := String.intercalate "" (row.toList.map (fun s => colorToEmoji s.color))
-    IO.println (spacer ++ " " ++ rowstr)
+  for row in cube.bottom.stickers.toList.reverse do
+    let rowstr := row.toList |>.map (fun s => colorToEmoji s.color)
+    IO.println (spacer ++ " " ++ String.intercalate "" rowstr)
 
 #eval printUnfoldedCube (solvedCube 2)
 
