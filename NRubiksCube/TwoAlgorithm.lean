@@ -180,7 +180,7 @@ end Moves
 namespace TwoRubik
 
 /-- `other a b x` is whichever of `a` or `b` which is not equal to `x`. -/
-private def other (a b x : Corner) : Corner :=
+def other (a b x : Corner) : Corner :=
   if x = a then b else a
 
 /-- A sequence of moves that puts the cube's corners in their correct position, in the specified
@@ -191,6 +191,13 @@ def solveCornersAux (cube : TwoRubik) : List Corner → Moves
     let m := Moves.cycleCorners a x (other b c x)
     let cube' := cube * move m
     m ++ solveCornersAux cube' ((b::c::l).filter fun e ↦ cornerEquiv cube' e ≠ e)
+  | a::b::_l =>
+    let prem := Moves.fixCorners₂ a b
+    let cube' := cube * move (prem ++ Moves.U)
+    let c := (cornerEquiv cube') ((cornerEquiv cube).symm b)
+    let d := (cornerEquiv cube') ((cornerEquiv cube).symm c)
+    let m := Moves.cycleCorners a c d ++ prem.symm
+    m
   | _ => []
 termination_by l => l.length
 decreasing_by exact List.length_filter_lt _ _ _
