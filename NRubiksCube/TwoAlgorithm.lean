@@ -293,7 +293,4 @@ theorem IsValid.isSolvable (h : IsValid cube) : IsSolvable cube :=
 theorem isSolvable_iff_isValid : IsSolvable cube ↔ IsValid cube :=
   ⟨IsSolvable.isValid, IsValid.isSolvable⟩
 
-instance : DecidablePred IsSolvable :=
-  fun _ ↦ decidable_of_iff' _ isSolvable_iff_isValid
-
 end TwoIllegalRubik
