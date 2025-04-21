@@ -17,8 +17,7 @@ Defines structures for the pieces in an n×n×n Rubik's cube.
 We subdivide the edges and corners into
 their individual stickers. This gives us `EdgePiece`s and `CornerPiece`s, which can be
 identified with `IsAdjacent` oriented pairs, and `IsAdjacent₃` oriented triples, so that
-permutations of these tuples yield the other pieces in the same edge or corner. See the docs there
-for details on this assignment.
+permutations of these tuples yield the other pieces in the same edge or corner.
 
 `Edge` and `Corner` are then defined as quotients of `EdgePiece` and `CornerPiece` under the
 relation of being in the same edge or corner..

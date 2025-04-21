@@ -310,7 +310,7 @@ theorem IsValid.inv (h : IsValid cube) : IsValid cube⁻¹ :=
 theorem isValid_iff :
     IsValid cube ↔ cornerRotation cube = 1 := by
   rw [IsValid, invariant]
-  simp only [MonoidHom.mem_ker, MonoidHom.prod_apply, Prod.mk_eq_one]
+  simp only [MonoidHom.mem_ker, MonoidHom.prod_apply]
 
 theorem IsValid.cornerRotation (h : IsValid cube) : cornerRotation cube = 1 :=
   isValid_iff.1 h
