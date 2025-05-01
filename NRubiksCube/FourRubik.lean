@@ -117,6 +117,12 @@ def r_move_corner_ori_delta (slot_before_move : CornerSlot) : ZMod 3 :=
 
 -- Similarly define deltas for L, U, D, F, B moves...
 
+def f_move_corner_ori_delta (slot_before_move : CornerSlot) : ZMod 3 :=
+  if slot_before_move = c_ufl then 2 -- 0 to 2 etc
+  else if slot_before_move = c_urf then 1
+  else if slot_before_move = c_drf then 2
+  else if slot_before_move = c_dfl then 1
+  else 0
 
 -- Helper to get sticker index for a corner based on the face being viewed
 
@@ -222,17 +228,40 @@ def centerSlot (face : Orientation) (idx : Fin 4) : CenterSlot :=
   let face_base : Fin 6 := match face.axis with | .x => if face.sign then 3 else 1 | .y => if face.sign then 0 else 5 | .z => if face.sign then 2 else 4 -- R L U D F B -> 3 1 0 5 2 4
   ⟨4 * face_base.val + idx.val, by omega⟩ -- Proof value is < 24
 
--- Define constants for R face centers (Indices 12, 13, 14, 15)
--- Assume clockwise cycle: 12(UL) -> 13(UR) -> 15(DR) -> 14(DL) -> 12
-def z_r_ul : CenterSlot := centerSlot Orientation.R 0 -- 12
-def z_r_ur : CenterSlot := centerSlot Orientation.R 1 -- 13
-def z_r_dr : CenterSlot := centerSlot Orientation.R 2 -- 14
-def z_r_dl : CenterSlot := centerSlot Orientation.R 3 -- 15
+
+-- U Face (Base 0: Indices 0, 1, 2, 3)
+def z_u_ul : CenterSlot := centerSlot U 0 -- Index 0
+def z_u_ur : CenterSlot := centerSlot U 1 -- Index 1
+def z_u_dr : CenterSlot := centerSlot U 2 -- Index 2
+def z_u_dl : CenterSlot := centerSlot U 3 -- Index 3
+-- L Face (Base 1: Indices 4, 5, 6, 7)
+def z_l_ul : CenterSlot := centerSlot L 0 -- Index 4
+def z_l_ur : CenterSlot := centerSlot L 1 -- Index 5
+def z_l_dr : CenterSlot := centerSlot L 2 -- Index 6
+def z_l_dl : CenterSlot := centerSlot L 3 -- Index 7
+-- F Face (Base 2: Indices 8, 9, 10, 11)
+def z_f_ul : CenterSlot := centerSlot F 0 -- Index 8
+def z_f_ur : CenterSlot := centerSlot F 1 -- Index 9
+def z_f_dr : CenterSlot := centerSlot F 2 -- Index 10
+def z_f_dl : CenterSlot := centerSlot F 3 -- Index 11
+-- R Face (Base 3: Indices 12, 13, 14, 15)
+def z_r_ul : CenterSlot := centerSlot R 0 -- Index 12
+def z_r_ur : CenterSlot := centerSlot R 1 -- Index 13
+def z_r_dr : CenterSlot := centerSlot R 2 -- Index 14
+def z_r_dl : CenterSlot := centerSlot R 3 -- Index 15
+-- B Face (Base 4: Indices 16, 17, 18, 19)
+def z_b_ul : CenterSlot := centerSlot B 0 -- Index 16
+def z_b_ur : CenterSlot := centerSlot B 1 -- Index 17
+def z_b_dr : CenterSlot := centerSlot B 2 -- Index 18
+def z_b_dl : CenterSlot := centerSlot B 3 -- Index 19
+-- D Face (Base 5: Indices 20, 21, 22, 23)
+def z_d_ul : CenterSlot := centerSlot D 0 -- Index 20
+def z_d_ur : CenterSlot := centerSlot D 1 -- Index 21
+def z_d_dr : CenterSlot := centerSlot D 2 -- Index 22
+def z_d_dl : CenterSlot := centerSlot D 3 -- Index 23
+
 def r_face_centers : List CenterSlot := [z_r_ul, z_r_ur, z_r_dr, z_r_dl] -- 12, 13, 14, 15
-def z_r_1 := z_r_ul
-def z_r_2 := z_r_ur
-def z_r_3 := z_r_dr
-def z_r_4 := z_r_dl -- Use 1/2/3/4 locally
+
 
 
 def cr_slice_centers : List CenterSlot := [
@@ -253,42 +282,21 @@ def cr_slice_centers : List CenterSlot := [
 -- CR affects Edges: UF(0,1), UB(4,5), DB(20,21), DF(16,17) - Perpendicular slice
 -- Cycle 1 (Type A): 0 -> 4 -> 20 -> 16 -> 0
 -- Cycle 2 (Type B): 1 -> 5 -> 21 -> 17 -> 1
-def cr_slice_edges_a : List EdgeSlot := [e_uf_a, e_ub_a, e_db_a, e_df_a] -- 0, 4, 20, 16
-def cr_slice_edges_b : List EdgeSlot := [e_uf_b, e_ub_b, e_db_b, e_df_b] -- 1, 5, 21, 17
+def cr_slice_edges_a : List EdgeSlot := [e_uf_a, e_db_a] -- 0, 4, 20, 16
+def cr_slice_edges_b : List EdgeSlot := [e_ub_b, e_df_b] -- 1, 5, 21, 17
 
+def cf_slice_edges : List EdgeSlot := [e_ur_b, e_dr_a, e_dl_b, e_ul_a]
 
--- U Face: Affects UR (1) and DR (3) -> Indices 1, 3
--- F Face: Affects UR (1) and DR (3) -> Indices 9, 11
--- D Face: Affects UR (1) and DR (3) -> Indices 21, 23
--- B Face: Affects UL (0) and DL (2) -> Indices 17, 19 (Indices relative to Back face perspective)
--- Cycle 1: U_UR(1) -> F_UR(9) -> D_UR(21) -> B_UL(17) -> U_UR(1)
--- Cycle 2: U_DR(3) -> F_DR(11) -> D_DR(23) -> B_DL(19) -> U_DR(3)
+def cu_slice_edges_a : List EdgeSlot := [e_fr_a, e_bl_a]
 
-def z_u_ur : CenterSlot := centerSlot Orientation.U 1 -- 1
-def z_u_dr : CenterSlot := centerSlot Orientation.U 3 -- 3
-def z_f_ur : CenterSlot := centerSlot Orientation.F 1 -- 9
-def z_f_dr : CenterSlot := centerSlot Orientation.F 3 -- 11
-def z_d_ur : CenterSlot := centerSlot Orientation.D 1 -- 21
-def z_d_dr : CenterSlot := centerSlot Orientation.D 3 -- 23
-def z_b_ul : CenterSlot := centerSlot Orientation.B 0 -- 16 (Check B face indexing: 0=UL?)
-def z_b_dl : CenterSlot := centerSlot Orientation.B 2 -- 18 (Check B face indexing: 2=DL?)
+def cu_slice_edges_b : List EdgeSlot := [e_fl_b, e_br_b]
 
+def cr_slice_centers1 : List CenterSlot := [z_u_ur, z_f_ur, z_d_ur, z_b_dl] -- 1, 9, 21, 16
+def cr_slice_centers2 : List CenterSlot := [z_u_dr, z_f_dr, z_d_dr, z_b_ul] -- 3, 11, 23, 18
 
-def cr_slice_centers1 : List CenterSlot := [z_u_ur, z_f_ur, z_d_ur, z_b_ul] -- 1, 9, 21, 16
-def cr_slice_centers2 : List CenterSlot := [z_u_dr, z_f_dr, z_d_dr, z_b_dl] -- 3, 11, 23, 18
+def f_slice_edges: List EdgeSlot := [e_uf_a, e_uf_b, e_fr_a, e_fr_b, e_df_a, e_df_b, e_fl_a, e_fl_b]
 
--- Define Center indices for L, F, B faces too
-def z_l_ul : CenterSlot := centerSlot Orientation.L 0 -- 4
-def z_l_ur : CenterSlot := centerSlot Orientation.L 1 -- 5
-def z_l_dr : CenterSlot := centerSlot Orientation.L 2 -- 6
-def z_l_dl : CenterSlot := centerSlot Orientation.L 3 -- 7
-def z_f_ul : CenterSlot := centerSlot Orientation.F 0 -- 8
-def z_f_dl : CenterSlot := centerSlot Orientation.F 3 -- 11
-def z_b_ur : CenterSlot := centerSlot Orientation.B 1 -- 17
-def z_b_dr : CenterSlot := centerSlot Orientation.B 2 -- 18
-def z_d_ul : CenterSlot := centerSlot Orientation.D 0 -- 20
-def z_d_dl : CenterSlot := centerSlot Orientation.D 3 -- 23
-
+def cd_slice_edges : List EdgeSlot := [e_fr_b, e_fl_a, e_br_a, e_bl_b] -- 1, 4, 5, 8
 /-! ### Orientation Deltas ### -/
 -- (Keep r_move_corner_ori_delta from previous step)
 
@@ -297,7 +305,21 @@ def cr_move_edge_ori_delta (slot_before_move : EdgeSlot) : ZMod 2 :=
   -- Check if the slot is one of the 8 involved in the CR slice turn
   if slot_before_move ∈ cr_slice_edges_a || slot_before_move ∈ cr_slice_edges_b then 1 else 0
 
+def cu_move_edge_ori_delta (slot_before_move : EdgeSlot) : ZMod 2 :=
+  -- Check if the slot is one of the 8 involved in the CR slice turn
+  if slot_before_move ∈ cu_slice_edges_a || slot_before_move ∈ cu_slice_edges_b then 1 else 0
 
+def f_move_edge_ori_delta (slot_before_move : EdgeSlot) : ZMod 2 :=
+  -- Check if the slot is one of the 8 involved in the CR slice turn
+  if slot_before_move ∈ f_slice_edges then 1 else 0
+
+def cf_move_edge_ori_delta (slot_before_move : EdgeSlot) : ZMod 2 :=
+  -- Check if the slot is one of the 8 involved in the CR slice turn
+  if slot_before_move ∈ cf_slice_edges then 1 else 0
+
+def cd_move_edge_ori_delta (slot_before_move : EdgeSlot) : ZMod 2 :=
+  -- Check if the slot is one of the 8 involved in the CR slice turn
+  if slot_before_move ∈ cd_slice_edges then 1 else 0
 ----------------------------------------STOP----------------------------------------
 
 
@@ -317,8 +339,7 @@ def u_face_edges_b : List EdgeSlot := [e_uf_b, e_ur_b, e_ub_b, e_ul_b] -- 1, 3, 
 -- Centers: U face centers (Indices 0, 1, 2, 3)
 -- Assume 0=UL, 1=UR, 2=DR, 3=DL relative to center block
 -- Clockwise Cycle: 0 → 1 → 2 → 3 → 0
-def z_u_ul : CenterSlot := centerSlot Orientation.U 0 -- 0
-def z_u_dl : CenterSlot := centerSlot Orientation.U 3 -- 3
+
 def u_face_centers : List CenterSlot := [z_u_ul, z_u_ur, z_u_dr, z_u_dl] -- 0, 1, 2, 3
 
 /-! ### Orientation Deltas ### -/
@@ -413,53 +434,109 @@ open Equiv
 -- Then B_UL is 16, B_DL is 18.
 -- Cycle 1: 1 -> 9 -> 21 -> 16 -> 1
 -- Cycle 2: 3 -> 11 -> 23 -> 18 -> 3
+
+--correct
 def r_move_corner_perm : Perm CornerSlot :=
   swap c_urf c_drf * swap c_urf c_drb * swap c_urf c_urb
+
+def f_move_corner_perm : Perm CornerSlot :=
+  swap c_ufl c_dfl * swap c_ufl c_drf * swap c_ufl c_urf
+
+--correct
 def r_move_edge_perm : Perm EdgeSlot :=
   (swap e_ur_b e_fr_b * swap e_ur_b e_dr_b * swap e_ur_b e_br_b)
   *(swap e_ur_a e_fr_a * swap e_ur_a e_dr_a * swap e_ur_a e_br_a)
 
-
+def f_move_edge_perm : Perm EdgeSlot :=
+  (swap e_uf_b e_fl_a * swap e_uf_b e_df_b * swap e_uf_b e_fr_a)*
+  (swap e_uf_a e_fl_b * swap e_uf_a e_df_a * swap e_uf_a e_fr_b)
 /-- The permutation of center slots caused by a clockwise R face turn.
     Cycles the 4 center slots on the R face.
     Cycle: R_UL(12) → R_UR(13) → R_DR(14) → R_DL(15) → R_UL(12) -/
-def r_move_center_perm : Perm CenterSlot :=
-  swap z_r_1 z_r_2 * swap z_r_1 z_r_3 * swap z_r_1 z_r_4
 
+--correct
+def r_move_center_perm : Perm CenterSlot :=
+  swap z_r_dr z_r_ur * swap z_r_dl z_r_dr * swap z_r_ul z_r_dl
+
+def f_move_center_perm : Perm CenterSlot :=
+  swap z_f_ur z_f_ul * swap z_f_dr z_f_ur * swap z_f_dl z_f_dr
 -- ## Permutations for U Move
 
 -- Cycle: 0 → 1 → 2 → 3 → 0
+
+--correct
 def u_move_corner_perm : Perm CornerSlot :=
   swap c_ufl c_urf * swap c_ufl c_urb * swap c_ufl c_ulb
 
+def d_move_corner_perm : Perm CornerSlot :=
+  swap c_dfl c_dlb * swap c_dfl c_drb * swap c_dfl c_drf
 -- Cycle A: 0 → 2 → 4 → 6 → 0
 -- Cycle B: 1 → 3 → 5 → 7 → 1
+
+--correct
 def u_move_edge_perm : Perm EdgeSlot :=
   ( swap e_uf_b e_ur_b * swap e_uf_b e_ub_b * swap e_uf_b e_ul_b)*
   ( swap e_uf_a e_ur_a* swap e_uf_a e_ub_a * swap e_uf_a e_ul_a)
 
-
+def d_move_edge_perm : Perm EdgeSlot :=
+  (  swap e_df_b e_dl_b * swap e_df_b e_db_b * swap e_df_b e_dr_b)*
+  ( swap e_df_a e_dl_a * swap e_df_a e_db_a * swap e_df_a e_dr_a)
 -- Cycle: 0 → 1 → 2 → 3 → 0
+--correct
 def u_move_center_perm : Perm CenterSlot :=
-  swap z_u_ul z_u_ur * swap z_u_ul z_u_dr * swap z_u_ul z_u_dl
+  swap z_u_dr z_u_ur * swap z_u_dl z_u_dr * swap z_u_ul z_u_dl
+
+def d_move_center_perm : Perm CenterSlot :=
+  swap z_d_dr z_d_ur * swap z_d_dl z_d_dr * swap z_d_ul z_d_dl
+
 
 open Indexing -- Make constants visible
 
 -- ## Permutations for CR Move
+
+-- correct
 def cr_move_corner_perm : Equiv.Perm CornerSlot := 1 -- CR doesn't affect corners
 
+def cu_move_corner_perm : Equiv.Perm CornerSlot := 1 -- CR doesn't affect corners
+
+def cd_move_corner_perm : Equiv.Perm CornerSlot := 1 -- CR doesn't affect corners
 -- Cycle 1: 0 -> 4 -> 20 -> 16 -> 0
 -- Cycle 2: 1 -> 5 -> 21 -> 17 -> 1
+
+def cf_move_corner_perm : Perm CornerSlot := 1
+
+--correct
 def cr_move_edge_perm : Perm EdgeSlot :=
-  swap e_uf_a e_ub_b * swap e_uf_a e_db_a * swap e_uf_a e_df_b -- Implements 0 → 5 → 20 → 17 → 0
+  swap e_uf_a e_df_b * swap e_uf_a e_db_a * swap e_uf_a e_ub_b -- Implements 0 → 5 → 20 → 17 → 0
+
+def cu_move_edge_perm : Perm EdgeSlot :=
+  swap e_fl_b e_fr_a * swap e_fl_b e_br_b * swap e_fl_b e_bl_a-- Implements 1 → 4 → 21 → 16 → 1
+
+def cf_move_edge_perm : Perm EdgeSlot :=
+  swap e_ul_a e_dl_b * swap e_ul_a e_dr_a *swap e_ul_a e_ur_b
+
+def cd_move_edge_perm : Perm EdgeSlot :=
+  swap e_fr_b e_fl_a * swap e_fr_b e_bl_b * swap e_fr_b e_br_a
 
 /-- The permutation of center slots caused by a clockwise CR slice turn.
     Cycles two groups of 4 centers on U, F, D, B faces.
     Cycle 1: U_UR(1) → F_UR(9) → D_UR(21) → B_UL(16) → U_UR(1)
     Cycle 2: U_DR(3) → F_DR(11) → D_DR(23) → B_DL(19) → U_DR(3) -/
+
 def cr_move_center_perm : Perm CenterSlot :=
-  ( swap z_u_dr z_f_dr* swap z_u_dr z_d_dr * swap z_u_dr z_b_dl) *
-  ( swap z_u_ur z_f_ur* swap z_u_ur z_d_ur * swap z_u_ur z_b_ul)
+  ( swap z_u_ur z_f_ur* swap z_u_ur z_d_ur * swap z_u_ur z_b_dl) * -- Inverse of previous Cycle 1
+  ( swap z_u_dr z_f_dr* swap z_u_dr z_d_dr * swap z_u_dr z_b_ul)   -- Inverse of previous Cycle 2
+
+def cf_move_center_perm : Perm CenterSlot :=
+  (swap z_u_dr z_l_ur * swap z_u_dr z_d_ul * swap z_u_dr z_r_dl)*   -- Inverse of previous Cycle 2
+  (swap z_u_dl z_l_dr * swap z_u_dl z_d_ur * swap z_u_dl z_r_ul)   -- Inverse of previous Cycle 1
+def cu_move_center_perm : Perm CenterSlot :=
+  (swap z_f_ur z_r_ur * swap z_f_ur z_b_ur * swap z_f_ur z_l_ur)*  -- Inverse of previous Cycle 2
+  (swap z_f_ul z_r_ul * swap z_f_ul z_b_ul * swap z_f_ul z_l_ul)   -- Inverse of previous Cycle 1
+
+def cd_move_center_perm : Perm CenterSlot :=
+  (swap z_f_dr z_l_dr * swap z_f_dr z_b_dr * swap z_f_dr z_r_dr)*  -- Inverse of previous Cycle 2
+  (swap z_f_dl z_l_dl * swap z_f_dl z_b_dl * swap z_f_dl z_r_dl)   -- Inverse of previous Cycle 1
 
 
 def rotY_corner_perm : Perm CornerSlot :=
@@ -469,23 +546,24 @@ def rotY_corner_perm : Perm CornerSlot :=
 def rotY_edge_perm : Perm EdgeSlot :=
   (swap e_uf_a e_ul_a * swap e_uf_a e_ub_a * swap e_uf_a e_ur_a) * -- Top A
   (swap e_uf_b e_ul_b * swap e_uf_b e_ub_b * swap e_uf_b e_ur_b) * -- Top B
-  (swap e_fl_a e_bl_a * swap e_fl_a e_br_a * swap e_fl_a e_fr_a) * -- Mid A
-  (swap e_fl_b e_bl_b * swap e_fl_b e_br_b * swap e_fl_b e_fr_b) * -- Mid B
+  (swap e_fl_b e_bl_a * swap e_fl_b e_br_b * swap e_fl_b e_fr_a) * -- Mid A
+  (swap e_fl_a e_bl_b * swap e_fl_a e_br_a * swap e_fl_a e_fr_b) * -- Mid B
   (swap e_df_a e_dl_a * swap e_df_a e_db_a * swap e_df_a e_dr_a) * -- Bot A
   (swap e_df_b e_dl_b * swap e_df_b e_db_b * swap e_df_b e_dr_b)   -- Bot B
 
 def rotY_center_perm : Perm CenterSlot :=
   (swap z_u_ul z_u_dl * swap z_u_ul z_u_dr * swap z_u_ul z_u_ur) * -- U face 0->1->2->3->0
-  (swap z_d_ul z_d_dl * swap z_d_ul z_d_dr * swap z_d_ul z_d_ur) * -- D face 20->21->22->23->20
+  (swap z_d_ul z_d_ur * swap z_d_ul z_d_dr * swap z_d_ul z_d_dl) * -- D face 20->21->22->23->20
   (swap z_l_ul z_b_ul * swap z_l_ul z_r_ul * swap z_l_ul z_f_ul) * -- UL pos: 4->8->12->16->4
   (swap z_l_ur z_b_ur * swap z_l_ur z_r_ur * swap z_l_ur z_f_ur) * -- UR pos: 5->9->13->17->5-- DR pos: 6->10->14->18->6
-  (swap z_l_dl z_b_dl * swap z_l_dl z_r_dl * swap z_l_dl z_f_dl)
+  (swap z_l_dl z_b_dl * swap z_l_dl z_r_dl * swap z_l_dl z_f_dl) *
+  (swap z_l_dr z_b_dr * swap z_l_dr z_r_dr * swap z_l_dr z_f_dr) -- DL pos: 7->11->15->19->7
     -- DL pos: 7->11->15->19->7
 
 
 -- ## Apply Move Implementation (Cases R, CR)
 /-- Rotates the entire cube state 90 degrees clockwise around the Y (Up/Down) axis.
-    This changes the frame of reference: F becomes R, R becomes B, etc.
+    F becomes R, R becomes B, etc.
     Permutations are conjugated, and orientation functions are composed with the
     inverse permutation (as Y-rotation doesn't intrinsically change twist/flip). -/
 def rotateCubeY (s : CubeState) : CubeState where
@@ -497,6 +575,35 @@ def rotateCubeY (s : CubeState) : CubeState where
   edge_ori    := fun i => s.edge_ori (rotY_edge_perm⁻¹ i)
 
 def rotateCubeY2 : CubeState → CubeState := rotateCubeY ∘ rotateCubeY
+def rotY2_corner_perm : Perm CornerSlot := rotY_corner_perm * rotY_corner_perm
+def rotY2_edge_perm : Perm EdgeSlot := rotY_edge_perm * rotY_edge_perm
+def rotY2_center_perm : Perm CenterSlot := rotY_center_perm * rotY_center_perm
+
+def l_move_corner_perm : Perm CornerSlot := rotY2_corner_perm * r_move_corner_perm * rotY2_corner_perm⁻¹
+def l_move_edge_perm : Perm EdgeSlot := rotY2_edge_perm * r_move_edge_perm * rotY2_edge_perm⁻¹
+def l_move_center_perm : Perm CenterSlot := rotY2_center_perm * r_move_center_perm * rotY2_center_perm⁻¹
+-- L_delta(i) = R_delta(rotY2⁻¹ i)
+def l_move_corner_ori_delta (i : CornerSlot) : ZMod 3 := r_move_corner_ori_delta (rotY2_corner_perm⁻¹ i)
+def l_move_edge_ori_delta (_ : EdgeSlot) : ZMod 2 := 0
+
+def cl_move_corner_perm : Perm CornerSlot := rotY2_corner_perm * cr_move_corner_perm * rotY2_corner_perm⁻¹
+def cl_move_edge_perm : Perm EdgeSlot := rotY2_edge_perm * cr_move_edge_perm * rotY2_edge_perm⁻¹
+def cl_move_center_perm : Perm CenterSlot := rotY2_center_perm * cr_move_center_perm * rotY2_center_perm⁻¹
+-- CL_delta(i) = CR_delta(rotY2⁻¹ i)
+def cl_move_edge_ori_delta (i : EdgeSlot) : ZMod 2 := cr_move_edge_ori_delta (rotY2_edge_perm⁻¹ i)
+
+def b_move_corner_perm : Perm CornerSlot := rotY2_corner_perm * f_move_corner_perm * rotY2_corner_perm⁻¹
+def b_move_edge_perm : Perm EdgeSlot := rotY2_edge_perm * f_move_edge_perm * rotY2_edge_perm⁻¹
+def b_move_center_perm : Perm CenterSlot := rotY2_center_perm * f_move_center_perm * rotY2_center_perm⁻¹
+-- B_delta(i) = F_delta(rotY2⁻¹ i)
+def b_move_corner_ori_delta (i : CornerSlot) : ZMod 3 := f_move_corner_ori_delta (rotY2_corner_perm⁻¹ i)
+def b_move_edge_ori_delta (i : EdgeSlot) : ZMod 2 := f_move_edge_ori_delta (rotY2_edge_perm⁻¹ i)
+
+def cb_move_corner_perm : Perm CornerSlot := rotY2_corner_perm * cf_move_corner_perm * rotY2_corner_perm⁻¹
+def cb_move_edge_perm : Perm EdgeSlot := rotY2_edge_perm * cf_move_edge_perm * rotY2_edge_perm⁻¹
+def cb_move_center_perm : Perm CenterSlot := rotY2_center_perm * cf_move_center_perm * rotY2_center_perm⁻¹
+-- CB_delta(i) = CF_delta(rotY2⁻¹ i)
+def cb_move_edge_ori_delta (i : EdgeSlot) : ZMod 2 := cf_move_edge_ori_delta (rotY2_edge_perm⁻¹ i)
 
 def apply_move (m : BasicMove) (s : CubeState) : CubeState :=
   match m with
@@ -516,7 +623,13 @@ def apply_move (m : BasicMove) (s : CubeState) : CubeState :=
       -- Edges are permuted AND flipped
       edge_ori    := fun i => s.edge_ori (cr_move_edge_perm⁻¹ i) + cr_move_edge_ori_delta (cr_move_edge_perm⁻¹ i)
     }
-  | BasicMove.L => s
+  | BasicMove.L =>
+    { corner_perm := l_move_corner_perm * s.corner_perm,
+      edge_perm   := l_move_edge_perm * s.edge_perm,
+      center_perm := l_move_center_perm * s.center_perm,
+      corner_ori  := fun i => s.corner_ori (l_move_corner_perm⁻¹ i) + l_move_corner_ori_delta (l_move_corner_perm⁻¹ i),
+      edge_ori    := fun i => s.edge_ori (l_move_edge_perm⁻¹ i)
+    }
   | BasicMove.U =>
     { corner_perm := u_move_corner_perm * s.corner_perm,
       edge_perm   := u_move_edge_perm * s.edge_perm,
@@ -526,14 +639,76 @@ def apply_move (m : BasicMove) (s : CubeState) : CubeState :=
       -- U move does not flip edges, delta is 0
       edge_ori    := fun i => s.edge_ori (u_move_edge_perm⁻¹ i)    -- + u_move_edge_ori_delta (u_move_edge_perm⁻¹ i) = + 0
     }
-  | BasicMove.D => s
-  | BasicMove.F => s
-  | BasicMove.B => s
-  | BasicMove.CL => s
-  | BasicMove.CU => s
-  | BasicMove.CD => s
-  | BasicMove.CF => s
-  | BasicMove.CB => s
+  | BasicMove.D =>
+    { corner_perm := d_move_corner_perm * s.corner_perm,
+      edge_perm   := d_move_edge_perm * s.edge_perm,
+      center_perm := d_move_center_perm * s.center_perm,
+      -- D move does not twist corners, delta is 0
+      corner_ori  := fun i => s.corner_ori (d_move_corner_perm⁻¹ i), -- + d_move_corner_ori_delta (d_move_corner_perm⁻¹ i) = + 0
+      -- D move does not flip edges, delta is 0
+      edge_ori    := fun i => s.edge_ori (d_move_edge_perm⁻¹ i)    -- + d_move_edge_ori_delta (d_move_edge_perm⁻¹ i) = + 0
+    }
+  | BasicMove.F =>
+    { corner_perm := f_move_corner_perm * s.corner_perm,
+      edge_perm   := f_move_edge_perm * s.edge_perm,
+      center_perm := f_move_center_perm * s.center_perm,
+
+      corner_ori  := fun i => s.corner_ori (f_move_corner_perm⁻¹ i) + f_move_corner_ori_delta (f_move_corner_perm⁻¹ i)
+
+      edge_ori    := fun i => s.edge_ori (f_move_edge_perm⁻¹ i) + f_move_edge_ori_delta (f_move_edge_perm⁻¹ i)
+    }
+  | BasicMove.B =>
+    { corner_perm := b_move_corner_perm * s.corner_perm,
+      edge_perm   := b_move_edge_perm * s.edge_perm,
+      center_perm := b_move_center_perm * s.center_perm,
+      corner_ori  := fun i => s.corner_ori (b_move_corner_perm⁻¹ i) + b_move_corner_ori_delta (b_move_corner_perm⁻¹ i),
+      edge_ori    := fun i => s.edge_ori (b_move_edge_perm⁻¹ i) + b_move_edge_ori_delta (b_move_edge_perm⁻¹ i)
+    }
+  | BasicMove.CL =>
+    { corner_perm := cl_move_corner_perm * s.corner_perm,
+      edge_perm   := cl_move_edge_perm * s.edge_perm,
+      center_perm := cl_move_center_perm * s.center_perm,
+      -- CL move does not twist corners, delta is 0
+      corner_ori  := fun i => s.corner_ori (cl_move_corner_perm⁻¹ i), -- + cl_move_corner_ori_delta (cl_move_corner_perm⁻¹ i) = + 0
+      -- CL move does not flip edges, delta is 0
+      edge_ori    := fun i => s.edge_ori (cl_move_edge_perm⁻¹ i) + cl_move_edge_ori_delta (cl_move_edge_perm⁻¹ i)
+    }
+  | BasicMove.CU =>
+    { corner_perm := cu_move_corner_perm * s.corner_perm,
+      edge_perm   := cu_move_edge_perm * s.edge_perm,
+      center_perm := cu_move_center_perm * s.center_perm,
+      -- U move does not twist corners, delta is 0
+      corner_ori  := fun i => s.corner_ori (cu_move_corner_perm⁻¹ i), -- + cu_move_corner_ori_delta (cu_move_corner_perm⁻¹ i) = + 0
+      -- U move does not flip edges, delta is 0
+      edge_ori    := fun i => s.edge_ori (cu_move_edge_perm⁻¹ i)  + cu_move_edge_ori_delta (cu_move_edge_perm⁻¹ i)
+    }
+  | BasicMove.CD =>
+    { corner_perm := cd_move_corner_perm * s.corner_perm,
+      edge_perm   := cd_move_edge_perm * s.edge_perm,
+      center_perm := cd_move_center_perm * s.center_perm,
+      -- U move does not twist corners, delta is 0
+      corner_ori  := fun i => s.corner_ori (cd_move_corner_perm⁻¹ i), -- + cd_move_corner_ori_delta (cd_move_corner_perm⁻¹ i) = + 0
+      -- U move does not flip edges, delta is 0
+      edge_ori    := fun i => s.edge_ori (cd_move_edge_perm⁻¹ i) + cd_move_edge_ori_delta (cd_move_edge_perm⁻¹ i)
+    }
+  | BasicMove.CF =>
+    { corner_perm := cf_move_corner_perm * s.corner_perm,
+      edge_perm   := cf_move_edge_perm * s.edge_perm,
+      center_perm := cf_move_center_perm * s.center_perm,
+      -- U move does not twist corners, delta is 0
+      corner_ori  := fun i => s.corner_ori (cf_move_corner_perm⁻¹ i), -- + cf_move_corner_ori_delta (cf_move_corner_perm⁻¹ i) = + 0
+      -- U move does not flip edges, delta is 0
+      edge_ori    := fun i => s.edge_ori (cf_move_edge_perm⁻¹ i) + cf_move_edge_ori_delta (cf_move_edge_perm⁻¹ i)
+    }
+  | BasicMove.CB =>
+    { corner_perm := cb_move_corner_perm * s.corner_perm,
+      edge_perm   := cb_move_edge_perm * s.edge_perm,
+      center_perm := cb_move_center_perm * s.center_perm,
+      -- U move does not twist corners, delta is 0
+      corner_ori  := fun i => s.corner_ori (cb_move_corner_perm⁻¹ i),
+      -- U move does not flip edges, delta is 0
+      edge_ori    := fun i => s.edge_ori (cb_move_edge_perm⁻¹ i) + cb_move_edge_ori_delta (cb_move_edge_perm⁻¹ i)
+    }
 
 end MoveImpl -- End MoveImpl namespace
 open MoveImpl -- Need access to the rotY permutations
@@ -553,7 +728,7 @@ inductive PieceStickerID where
       this sticker is (0:U/D, 1:F/B, 2:L/R, based on canonical orientation). -/
   | corner (slot : CornerSlot) (sticker_idx : Fin 3) : PieceStickerID
   /-- An edge sticker: identifies the edge slot (incl. A/B type) and which
-      of its 2 faces this sticker is (0:U/D/F/B, 1:L/R, based on canonical orientation). -/
+      of its 2 faces this sticker is (0,1:U/D/F/B/L/R, based on canonical orientation). -/
   | edge (slot : EdgeSlot) (sticker_idx : Fin 2) : PieceStickerID
   /-- A center sticker: identifies the center slot. -/
   | center (slot : CenterSlot) : PieceStickerID
@@ -573,6 +748,25 @@ abbrev StickerLoc4 : Type := StickerLocation n_four
 
 open Indexing
 
+def debugColor := Color.black -- Or Color.black if you add it
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Choose the slot you want to highlight
+def debugTargetSlot_Corner : Option CornerSlot := none -- Highlight UFL corner
+def debugTargetSlot_Edge : Option EdgeSlot := none -- Set to 'some e_uf_a' to highlight an edge
+def debugTargetSlot_Center : Option CenterSlot := none -- Set to 'some c_u_lf' to highlight a center
+
 /-- Given a sticker location (face, row, col) on a solved 4x4x4 cube,
     determines which piece slot occupies that location and which specific
     sticker of that piece it is. -/
@@ -584,14 +778,19 @@ def getSolvedPieceInfo (loc : StickerLocation n_four) : PieceStickerID :=
       | (3, 3) => .corner c_urf (getCornerStickerIndex c_urf U) -- URF, U sticker = idx 0
       | (0, 3) => .corner c_urb (getCornerStickerIndex c_urb U) -- URB, U sticker = idx 0
       | (0, 0) => .corner c_ulb (getCornerStickerIndex c_ulb U) -- ULB, U sticker = idx 0
-      | (3, 1) => .edge e_uf_a (getEdgeStickerIndex e_uf_a U) -- UF, A(col 1), U sticker = idx 0
-      | (3, 2) => .edge e_uf_b (getEdgeStickerIndex e_uf_b U) -- UF, B(col 2), U sticker = idx 0
-      | (1, 0) => .edge e_ul_a (getEdgeStickerIndex e_ul_a U) -- UL, A(row 2?), U sticker = idx 0 -- CHECKED A/B
-      | (2, 0) => .edge e_ul_b (getEdgeStickerIndex e_ul_b U) -- UL, B(row 1?), U sticker = idx 0 -- CHECKED A/B
-      | (0, 1) => .edge e_ub_a (getEdgeStickerIndex e_ub_a U) -- UB, A(col 1), U sticker = idx 0
-      | (0, 2) => .edge e_ub_b (getEdgeStickerIndex e_ub_b U) -- UB, B(col 2), U sticker = idx 0
-      | (1, 3) => .edge e_ur_a (getEdgeStickerIndex e_ur_a U) -- UR, A(row 2?), U sticker = idx 0 -- CHECKED A/B
-      | (2, 3) => .edge e_ur_b (getEdgeStickerIndex e_ur_b U) -- UR, B(row 1?), U sticker = idx 0 -- CHECKED A/B
+
+      | (3, 1) => .edge e_uf_b (getEdgeStickerIndex e_uf_a U) -- UF, A(col 1), U sticker = idx 0 --OK
+      | (3, 2) => .edge e_uf_a (getEdgeStickerIndex e_uf_b U) -- UF, B(col 2), U sticker = idx 0 -- ok
+
+      | (1, 0) => .edge e_ul_b (getEdgeStickerIndex e_ul_a U) -- ok
+      | (2, 0) => .edge e_ul_a (getEdgeStickerIndex e_ul_b U) -- ok
+
+      | (0, 1) => .edge e_ub_a (getEdgeStickerIndex e_ub_a U) -- ok
+      | (0, 2) => .edge e_ub_b (getEdgeStickerIndex e_ub_b U) -- ok
+
+      | (1, 3) => .edge e_ur_a (getEdgeStickerIndex e_ur_a U) -- ok
+      | (2, 3) => .edge e_ur_b (getEdgeStickerIndex e_ur_b U) -- ok
+
       | (1, 1) => .center z_u_ul -- Center UL (row 1, col 1)
       | (1, 2) => .center z_u_ur -- Center UR (row 1, col 2)
       | (2, 2) => .center z_u_dr -- Center DR (row 2, col 2)
@@ -603,14 +802,19 @@ def getSolvedPieceInfo (loc : StickerLocation n_four) : PieceStickerID :=
       | (0, 3) => .corner c_urf (getCornerStickerIndex c_urf F) -- URF, F sticker = idx 1
       | (3, 0) => .corner c_dfl (getCornerStickerIndex c_dfl F) -- DFL, F sticker = idx 1
       | (3, 3) => .corner c_drf (getCornerStickerIndex c_drf F) -- DRF, F sticker = idx 1
-      | (0, 1) => .edge e_uf_a (getEdgeStickerIndex e_uf_a F) -- UF, A(row 1?), F sticker = idx 0 -- CHECKED A/B
-      | (0, 2) => .edge e_uf_b (getEdgeStickerIndex e_uf_b F) -- UF, B(row 2?), F sticker = idx 0 -- CHECKED A/B
-      | (1, 0) => .edge e_fl_a (getEdgeStickerIndex e_fl_a F) -- FL, A(col 1?), F sticker = idx 0
-      | (2, 0) => .edge e_fl_b (getEdgeStickerIndex e_fl_b F) -- FL, B(col 2?), F sticker = idx 0
-      | (1, 3) => .edge e_fr_a (getEdgeStickerIndex e_fr_a F) -- FR, A(col 1?), F sticker = idx 0
-      | (2, 3) => .edge e_fr_b (getEdgeStickerIndex e_fr_b F) -- FR, B(col 2?), F sticker = idx 0
-      | (3, 1) => .edge e_df_a (getEdgeStickerIndex e_df_a F) -- DF, A(row 1?), F sticker = idx 0 -- CHECKED A/B
-      | (3, 2) => .edge e_df_b (getEdgeStickerIndex e_df_b F) -- DF, B(row 2?), F sticker = idx 0 -- CHECKED A/B
+
+      | (0, 1) => .edge e_uf_b (getEdgeStickerIndex e_uf_a F) -- ok
+      | (0, 2) => .edge e_uf_a (getEdgeStickerIndex e_uf_b F) -- ok
+
+      | (1, 0) => .edge e_fl_b (getEdgeStickerIndex e_fl_a F) -- ok
+      | (2, 0) => .edge e_fl_a (getEdgeStickerIndex e_fl_b F) -- ok
+
+      | (1, 3) => .edge e_fr_a (getEdgeStickerIndex e_fr_a F) -- ok
+      | (2, 3) => .edge e_fr_b (getEdgeStickerIndex e_fr_b F) -- ok
+
+      | (3, 1) => .edge e_df_a (getEdgeStickerIndex e_df_a F) -- ok
+      | (3, 2) => .edge e_df_b (getEdgeStickerIndex e_df_b F) -- ok
+
       | (1, 1) => .center z_f_ul -- Center UL (row 1, col 1)
       | (1, 2) => .center z_f_ur -- Center UR (row 1, col 2)
       | (2, 2) => .center z_f_dr -- Center DR (row 2, col 2)
@@ -622,18 +826,21 @@ def getSolvedPieceInfo (loc : StickerLocation n_four) : PieceStickerID :=
       | (3, 3) => .corner c_drf (getCornerStickerIndex c_drf R) -- DRF, R sticker = idx 2
       | (3, 0) => .corner c_drb (getCornerStickerIndex c_drb R) -- DRB, R sticker = idx 2
       | (0, 0) => .corner c_urb (getCornerStickerIndex c_urb R) -- URB, R sticker = idx 2
-      | (0, 1) => .edge e_ur_a (getEdgeStickerIndex e_ur_a R) -- UR, A(row 1?), R sticker = idx 1 -- CHECKED A/B
-      | (0, 2) => .edge e_ur_b (getEdgeStickerIndex e_ur_b R) -- UR, B(row 2?), R sticker = idx 1 -- CHECKED A/B
-      | (1, 3) => .edge e_fr_a (getEdgeStickerIndex e_fr_a R) -- FR, A(col 1?), R sticker = idx 1
-      | (2, 3) => .edge e_fr_b (getEdgeStickerIndex e_fr_b R) -- FR, B(col 2?), R sticker = idx 1
-      | (3, 1) => .edge e_dr_a (getEdgeStickerIndex e_dr_a R) -- DR, A(row 1?), R sticker = idx 1 -- CHECKED A/B
-      | (3, 2) => .edge e_dr_b (getEdgeStickerIndex e_dr_b R) -- DR, B(row 2?), R sticker = idx 1 -- CHECKED A/B
-      | (1, 0) => .edge e_br_a (getEdgeStickerIndex e_br_a R) -- BR, A(col 1?), R sticker = idx 1
-      | (2, 0) => .edge e_br_b (getEdgeStickerIndex e_br_b R) -- BR, B(col 2?), R sticker = idx 1
-      | (1, 1) => .center z_r_ul -- Center UL (row 1, col 1)
-      | (1, 2) => .center z_r_ur -- Center UR (row 1, col 2)
-      | (2, 2) => .center z_r_dr -- Center DR (row 2, col 2)
-      | (2, 1) => .center z_r_dl -- Center DL (row 2, col 1)
+
+      | (0, 1) => .edge e_ur_a (getEdgeStickerIndex e_ur_a R) -- ok
+      | (0, 2) => .edge e_ur_b (getEdgeStickerIndex e_ur_b R) -- ok
+
+      | (1, 3) => .edge e_fr_a (getEdgeStickerIndex e_fr_a R) -- ok
+      | (2, 3) => .edge e_fr_b (getEdgeStickerIndex e_fr_b R) -- ok
+      | (3, 1) => .edge e_dr_b (getEdgeStickerIndex e_dr_a R) -- ok
+      | (3, 2) => .edge e_dr_a (getEdgeStickerIndex e_dr_b R) -- ok
+      | (1, 0) => .edge e_br_b (getEdgeStickerIndex e_br_a R) -- ok
+      | (2, 0) => .edge e_br_a (getEdgeStickerIndex e_br_b R) -- ok
+
+      | (1, 1) => .center z_r_ur -- Center UL (row 1, col 1)
+      | (1, 2) => .center z_r_ul -- Center UR (row 1, col 2)
+      | (2, 2) => .center z_r_dl -- Center DR (row 2, col 2)
+      | (2, 1) => .center z_r_dr -- Center DL (row 2, col 1)
       | _      => panic! "Impossible R coordinate"
   -- B Face (Blue): Row 0 = Top, Col 0 = Left
   | (false, Axis.z) => match (loc.row.val, loc.col.val) with
@@ -641,18 +848,20 @@ def getSolvedPieceInfo (loc : StickerLocation n_four) : PieceStickerID :=
       | (0, 0) => .corner c_ulb (getCornerStickerIndex c_ulb B) -- ULB, B sticker = idx 1
       | (3, 0) => .corner c_dlb (getCornerStickerIndex c_dlb B) -- DLB, B sticker = idx 1
       | (3, 3) => .corner c_drb (getCornerStickerIndex c_drb B) -- DRB, B sticker = idx 1
-      | (0, 1) => .edge e_ub_a (getEdgeStickerIndex e_ub_a B) -- UB, A(row 1?), B sticker = idx 0 -- CHECKED A/B
-      | (0, 2) => .edge e_ub_b (getEdgeStickerIndex e_ub_b B) -- UB, B(row 2?), B sticker = idx 0 -- CHECKED A/B
-      | (1, 0) => .edge e_bl_a (getEdgeStickerIndex e_bl_a B) -- BL, A(col 1?), B sticker = idx 0
-      | (2, 0) => .edge e_bl_b (getEdgeStickerIndex e_bl_b B) -- BL, B(col 2?), B sticker = idx 0
-      | (1, 3) => .edge e_br_a (getEdgeStickerIndex e_br_a B) -- BR, A(col 1?), B sticker = idx 0
-      | (2, 3) => .edge e_br_b (getEdgeStickerIndex e_br_b B) -- BR, B(col 2?), B sticker = idx 0
-      | (3, 1) => .edge e_db_a (getEdgeStickerIndex e_db_a B) -- DB, A(row 1?), B sticker = idx 0 -- CHECKED A/B
-      | (3, 2) => .edge e_db_b (getEdgeStickerIndex e_db_b B) -- DB, B(row 2?), B sticker = idx 0 -- CHECKED A/B
-      | (1, 1) => .center z_b_ul -- Center UL (row 1, col 1)
-      | (1, 2) => .center z_b_ur -- Center UR (row 1, col 2)
-      | (2, 2) => .center z_b_dr -- Center DR (row 2, col 2)
-      | (2, 1) => .center z_b_dl -- Center DL (row 2, col 1)
+
+      | (0, 1) => .edge e_ub_a (getEdgeStickerIndex e_ub_a B) -- ok
+      | (0, 2) => .edge e_ub_b (getEdgeStickerIndex e_ub_b B) --ok
+      | (1, 0) => .edge e_bl_a (getEdgeStickerIndex e_bl_a B) --ok
+      | (2, 0) => .edge e_bl_b (getEdgeStickerIndex e_bl_b B) -- ok
+      | (1, 3) => .edge e_br_b (getEdgeStickerIndex e_br_a B) -- ok
+      | (2, 3) => .edge e_br_a (getEdgeStickerIndex e_br_b B) -- ok
+
+      | (3, 1) => .edge e_db_b (getEdgeStickerIndex e_db_a B) -- ok
+      | (3, 2) => .edge e_db_a (getEdgeStickerIndex e_db_b B) -- ok
+      | (1, 1) => .center z_b_ur -- Center UL (row 1, col 1)
+      | (1, 2) => .center z_b_ul -- Center UR (row 1, col 2)
+      | (2, 2) => .center z_b_dl -- Center DR (row 2, col 2)
+      | (2, 1) => .center z_b_dr -- Center DL (row 2, col 1)
       | _      => panic! "Impossible B coordinate"
   -- L Face (Orange): Row 0 = Top, Col 0 = Back
   | (false, Axis.x) => match (loc.row.val, loc.col.val) with
@@ -660,14 +869,16 @@ def getSolvedPieceInfo (loc : StickerLocation n_four) : PieceStickerID :=
       | (3, 0) => .corner c_dlb (getCornerStickerIndex c_dlb L) -- DLB, L sticker = idx 2
       | (3, 3) => .corner c_dfl (getCornerStickerIndex c_dfl L) -- DFL, L sticker = idx 2
       | (0, 3) => .corner c_ufl (getCornerStickerIndex c_ufl L) -- UFL, L sticker = idx 2
-      | (0, 1) => .edge e_ul_a (getEdgeStickerIndex e_ul_a L) -- UL, A(row 1?), L sticker = idx 1 -- CHECKED A/B
-      | (0, 2) => .edge e_ul_b (getEdgeStickerIndex e_ul_b L) -- UL, B(row 2?), L sticker = idx 1 -- CHECKED A/B
-      | (1, 0) => .edge e_bl_a (getEdgeStickerIndex e_bl_a L) -- BL, A(col 1?), L sticker = idx 1
-      | (2, 0) => .edge e_bl_b (getEdgeStickerIndex e_bl_b L) -- BL, B(col 2?), L sticker = idx 1
-      | (3, 1) => .edge e_dl_a (getEdgeStickerIndex e_dl_a L) -- DL, A(row 1?), L sticker = idx 1 -- CHECKED A/B
-      | (3, 2) => .edge e_dl_b (getEdgeStickerIndex e_dl_b L) -- DL, B(row 2?), L sticker = idx 1 -- CHECKED A/B
-      | (1, 3) => .edge e_fl_a (getEdgeStickerIndex e_fl_a L) -- FL, A(col 1?), L sticker = idx 1
-      | (2, 3) => .edge e_fl_b (getEdgeStickerIndex e_fl_b L) -- FL, B(col 2?), L sticker = idx 1
+
+      | (0, 1) => .edge e_ul_b (getEdgeStickerIndex e_ul_a L) --ok
+      | (0, 2) => .edge e_ul_a (getEdgeStickerIndex e_ul_b L) --ok
+      | (1, 0) => .edge e_bl_a (getEdgeStickerIndex e_bl_a L) --ok
+      | (2, 0) => .edge e_bl_b (getEdgeStickerIndex e_bl_b L) -- ok
+      | (3, 1) => .edge e_dl_a (getEdgeStickerIndex e_dl_a L) -- k
+      | (3, 2) => .edge e_dl_b (getEdgeStickerIndex e_dl_b L) -- k
+      | (1, 3) => .edge e_fl_b (getEdgeStickerIndex e_fl_a L) -- k
+      | (2, 3) => .edge e_fl_a (getEdgeStickerIndex e_fl_b L) -- k
+
       | (1, 1) => .center z_l_ul -- Center UL (row 1, col 1)
       | (1, 2) => .center z_l_ur -- Center UR (row 1, col 2)
       | (2, 2) => .center z_l_dr -- Center DR (row 2, col 2)
@@ -679,18 +890,20 @@ def getSolvedPieceInfo (loc : StickerLocation n_four) : PieceStickerID :=
       | (0, 3) => .corner c_drb (getCornerStickerIndex c_drb D) -- DRB, D sticker = idx 0
       | (3, 3) => .corner c_drf (getCornerStickerIndex c_drf D) -- DRF, D sticker = idx 0
       | (3, 0) => .corner c_dfl (getCornerStickerIndex c_dfl D) -- DFL, D sticker = idx 0
-      | (0, 1) => .edge e_db_a (getEdgeStickerIndex e_db_a D) -- DB, A(col 1?), D sticker = idx 0
-      | (0, 2) => .edge e_db_b (getEdgeStickerIndex e_db_b D) -- DB, B(col 2?), D sticker = idx 0
-      | (1, 0) => .edge e_dl_a (getEdgeStickerIndex e_dl_a D) -- DL, A(row 1?), D sticker = idx 0 -- CHECKED A/B
-      | (2, 0) => .edge e_dl_b (getEdgeStickerIndex e_dl_b D) -- DL, B(row 2?), D sticker = idx 0 -- CHECKED A/B
-      | (3, 1) => .edge e_df_a (getEdgeStickerIndex e_df_a D) -- DF, A(col 1?), D sticker = idx 0
-      | (3, 2) => .edge e_df_b (getEdgeStickerIndex e_df_b D) -- DF, B(col 2?), D sticker = idx 0
-      | (1, 3) => .edge e_dr_a (getEdgeStickerIndex e_dr_a D) -- DR, A(row 1?), D sticker = idx 0 -- CHECKED A/B
-      | (2, 3) => .edge e_dr_b (getEdgeStickerIndex e_dr_b D) -- DR, B(row 2?), D sticker = idx 0 -- CHECKED A/B
-      | (1, 1) => .center z_d_ul -- Center UL (row 1, col 1)
-      | (1, 2) => .center z_d_ur -- Center UR (row 1, col 2)
-      | (2, 2) => .center z_d_dr -- Center DR (row 2, col 2)
-      | (2, 1) => .center z_d_dl -- Center DL (row 2, col 1)
+
+      | (0, 1) => .edge e_db_b (getEdgeStickerIndex e_db_a D) -- k
+      | (0, 2) => .edge e_db_a (getEdgeStickerIndex e_db_b D) -- k
+      | (1, 0) => .edge e_dl_a (getEdgeStickerIndex e_dl_a D) --kk
+      | (2, 0) => .edge e_dl_b (getEdgeStickerIndex e_dl_b D) --k
+      | (3, 1) => .edge e_df_a (getEdgeStickerIndex e_df_a D) -- k
+      | (3, 2) => .edge e_df_b (getEdgeStickerIndex e_df_b D) -- kk
+      | (1, 3) => .edge e_dr_b (getEdgeStickerIndex e_dr_a D) -- k
+      | (2, 3) => .edge e_dr_a (getEdgeStickerIndex e_dr_b D) -- k
+
+      | (1, 1) => .center z_d_dl -- Center UL (row 1, col 1)
+      | (1, 2) => .center z_d_dr -- Center UR (row 1, col 2)
+      | (2, 2) => .center z_d_ur -- Center DR (row 2, col 2)
+      | (2, 1) => .center z_d_ul -- Center DL (row 2, col 1)
       | _      => panic! "Impossible D coordinate"
 
 end Visual
@@ -711,36 +924,36 @@ open Indexing Visual MoveImpl -- Assuming helpers are in Indexing/MoveImpl
 /-- Calculates the visual color of a single sticker based on the abstract cube state. -/
 def getStickerVisualColor (s : CubeState) (loc : StickerLocation n_four) : Color :=
   let pieceId := getSolvedPieceInfo loc -- Get Slot & StickerIdx for this location in solved state
-  match pieceId with
-  | .corner slot sticker_idx =>
-      -- Find which original corner piece is currently at this slot
-      let origin_slot : CornerSlot := s.corner_perm⁻¹ slot
-      -- Get the canonical colors of that original piece
-      let canonical_colors := getCanonicalCornerColors origin_slot
-      -- Get the current orientation value of whatever piece is at 'slot'
-      let ori_val : ZMod 3 := s.corner_ori slot
-      -- Apply the orientation value to find the visible color for this sticker_idx
-      let current_orientation := applyCornerOrientation canonical_colors ori_val sticker_idx
-      -- Convert the result to Visual.Color
-      mapOrientationToVisualColor current_orientation
-  | .edge slot sticker_idx =>
-      -- Find which original edge piece (A/B) is currently at this slot
-      let origin_slot : EdgeSlot := s.edge_perm⁻¹ slot
-      -- Get the canonical colors of that original piece
-      let canonical_colors := getCanonicalEdgeColors origin_slot
-      -- Get the current orientation value of whatever piece is at 'slot'
-      let ori_val : ZMod 2 := s.edge_ori slot
-      -- Apply the orientation value to find the visible color for this sticker_idx
-      let current_orientation := applyEdgeOrientation canonical_colors ori_val sticker_idx
-      -- Convert the result to Visual.Color
-      mapOrientationToVisualColor current_orientation
-  | .center slot =>
-      -- Find which original center piece is currently at this slot
-      let origin_slot : CenterSlot := s.center_perm⁻¹ slot
-      -- Get the canonical color of that original piece (centers don't orient)
-      let current_orientation := getCanonicalCenterColor origin_slot
-      -- Convert the result to Visual.Color
-      mapOrientationToVisualColor current_orientation
+
+  -- <<< COMBINED DEBUG CHECK and MAIN LOGIC >>>
+  -- Check if the current piece matches the debug target
+  let isDebugTarget : Bool := match pieceId with
+    | .corner slot _ => debugTargetSlot_Corner = some slot
+    | .edge slot _   => debugTargetSlot_Edge = some slot
+    | .center slot   => debugTargetSlot_Center = some slot
+
+  if isDebugTarget then
+    -- If it's the target, return the debug color
+    debugColor
+  else
+    -- Otherwise, proceed with the normal calculation
+    match pieceId with
+    | .corner slot sticker_idx =>
+        let origin_slot := s.corner_perm⁻¹ slot
+        let canonical_colors := getCanonicalCornerColors origin_slot
+        let ori_val := s.corner_ori slot
+        let current_orientation := applyCornerOrientation canonical_colors ori_val sticker_idx
+        mapOrientationToVisualColor current_orientation
+    | .edge slot sticker_idx =>
+        let origin_slot := s.edge_perm⁻¹ slot
+        let canonical_colors := getCanonicalEdgeColors origin_slot
+        let ori_val := s.edge_ori slot
+        let current_orientation := applyEdgeOrientation canonical_colors ori_val sticker_idx
+        mapOrientationToVisualColor current_orientation
+    | .center slot =>
+        let origin_slot := s.center_perm⁻¹ slot
+        let current_orientation := getCanonicalCenterColor origin_slot
+        mapOrientationToVisualColor current_orientation
 
 /-- Converts an abstract CubeState into a visually representable Cube structure. -/
 def stateToVisual (s : CubeState) : Cube n_four :=
@@ -750,18 +963,14 @@ def stateToVisual (s : CubeState) : Cube n_four :=
         -- Create a default row (Array Sticker) using replicate
         let defaultSticker : Sticker := { color := Color.white } -- Default value
         let defaultRow : Array Sticker := Array.replicate n_four defaultSticker
-        -- Create the face array (Array (Array Sticker)) using replicate with the default row
+
         let mut faceStickers := Array.replicate n_four defaultRow
         -- Loop through stickers and set the calculated color
         for r_idx in List.finRange n_four do
           for c_idx in List.finRange n_four do
             let loc : StickerLocation n_four := { face := faceOrientation, row := r_idx, col := c_idx }
             let visualColor := getStickerVisualColor s loc
-            -- Update the mutable array:
-            -- NOTE: Accessing/setting mutable arrays like this in Id can be tricky.
-            -- A purely functional approach using Array.set might be safer depending on context.
-            -- Let's stick to the mutable approach for now, assuming it works in this context.
-            -- Make sure to handle potential ! errors if indices could be out of bounds (shouldn't happen here)
+            -- Update the sticker color in the mutable array
             let currentRow := faceStickers[r_idx.val]!
             let updatedRow := currentRow.set! c_idx { color := visualColor }
             faceStickers := faceStickers.set! r_idx updatedRow
@@ -782,6 +991,16 @@ def view_initial : IO Unit := printUnfoldedCube (stateToVisual initialState)
 def view_after_R : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.R initialState))
 def view_after_U : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.U initialState))
 def view_after_CR : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CR initialState))
+def view_after_D : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.D initialState))
+def view_after_CU : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CU initialState))
+def view_after_F : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.F initialState))
+def view_after_CF : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CF initialState))
+def view_after_CD : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CD initialState))
+def view_after_L : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.L initialState))
+def view_after_CL : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CL initialState))
+def view_after_B : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.B initialState))
+def view_after_CB : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CB initialState))
+
 
 def apply_move_list (moves : List BasicMove) (start_state : CubeState) : CubeState :=
   List.foldl (fun s m => apply_move m s) start_state moves
@@ -790,6 +1009,21 @@ def view_URUinv : IO Unit := do
   let final_state := apply_move_list moves initialState
   printUnfoldedCube (stateToVisual final_state)
 
+open BasicMove
+def view_corner_cycle : IO Unit := do
+  let moves : List BasicMove := [R, R, R, D, D, D, R, U, U, U, R, R, R, D, R, U]
+  let final_state := apply_move_list moves initialState
+  printUnfoldedCube (stateToVisual final_state)
+
+def view_center_cycle : IO Unit := do
+  let moves : List BasicMove := [CF, CD, CF,CF,CF, CD, CD,CD, U,U,U, CD, CF, CD,CD,CD, CF,CF,CF,U]
+  let final_state := apply_move_list moves initialState
+  printUnfoldedCube (stateToVisual final_state)
+
+def view_test : IO Unit := do
+  let moves : List BasicMove := [R,U,F, CR, CU, CF, L, D, B, CL, CD, CB]
+  let final_state := apply_move_list moves initialState
+  printUnfoldedCube (stateToVisual final_state)
 -- rotate Y
 def view_rotL : IO Unit := do
   let final_state := rotateCubeY2 (apply_move BasicMove.R (rotateCubeY2 initialState))
@@ -800,11 +1034,39 @@ def view_rotL : IO Unit := do
 #eval view_after_R
 #eval view_after_U
 #eval view_after_CR
+#eval view_after_D
+#eval view_after_CU
+#eval view_after_F
+#eval view_after_CF
+#eval view_after_CD
+#eval view_after_L
+#eval view_after_CL
+#eval view_after_B
+#eval view_after_CB
 
+
+#eval view_corner_cycle
+#eval view_center_cycle
+#eval view_test
 #eval view_URUinv
 
 #eval view_rotL
 ------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #eval getCanonicalCornerColors c_urf
 
 #eval getCornerStickerIndex c_urf U
@@ -819,7 +1081,6 @@ def view_rotL : IO Unit := do
 def state_after_R := apply_move BasicMove.R initialState
 
 -- Check the orientation values for the affected slots
--- Note: We check the orientation AT the destination slot index
 
 #eval state_after_R.corner_ori c_urf -- Slot 1 (Piece from DRF, delta +1). Expected: 1
 #eval state_after_R.corner_ori c_urb -- Slot 2 (Piece from URF, delta +2). Expected: 2
@@ -830,11 +1091,10 @@ def state_after_R := apply_move BasicMove.R initialState
 #eval state_after_R.corner_ori c_ufl -- Slot 0 (Unaffected). Expected: 0
 
 
--- Define the state and location we are testing
 def loc_U33 : StickerLocation n_four := { face := U, row := ⟨3, by decide⟩, col := ⟨3, by decide⟩ }
 
--- 1. What PieceStickerID does getSolvedPieceInfo return for this location?
--- Expected: PieceStickerID.corner c_urf 0 (Corner slot 1, sticker index 0)
+
+-- Expected: (Corner slot 1, sticker index 0)
 #eval getSolvedPieceInfo loc_U33
 
 -- Assuming the above is correct (slot=1, sticker_idx=0), let's use these values:
@@ -871,7 +1131,6 @@ def test_final_visual_color := mapOrientationToVisualColor test_final_orientatio
 -- Expected: Color.green
 #eval getStickerVisualColor state_after_R loc_U33
 
+#eval getSolvedPieceInfo { face := L, row := ⟨0, by decide⟩, col := ⟨1, by decide⟩ }
 
-
--- Solvability Conditions not correct??
 end FourRubik

@@ -1,5 +1,5 @@
 inductive Color
-| white | yellow | red | orange | blue | green
+| white | yellow | red | orange | blue | green | black
 deriving Repr
 def repeatString (s : String) (n : Nat) : String :=
   String.join (List.replicate n s)
@@ -28,6 +28,7 @@ def colorToEmoji (c : Color) : String :=
   | Color.orange => "🟧"
   | Color.blue   => "🟦"
   | Color.green  => "🟩"
+  | Color.black  => "⬛"
 
 def listToFace (n : Nat) (lst : List (List Color)) : Face n :=
   { stickers := (lst.map (fun (row : List Color) =>
