@@ -47,6 +47,7 @@ structure CubeState where
   corner_ori : CornerSlot → ZMod 3 -- (ℤ₃)⁸
   edge_ori : EdgeSlot → ZMod 2
 
+#check Equiv.Perm
 
 def initialState : CubeState where
   corner_perm := 1
@@ -1009,6 +1010,15 @@ def view_URUinv : IO Unit := do
   let final_state := apply_move_list moves initialState
   printUnfoldedCube (stateToVisual final_state)
 
+@[simp]
+def inv_move (m : BasicMove) : List BasicMove :=
+  [m, m, m]
+
+@[simp] -- Mark for simplification
+def inv_move_list (moves : List BasicMove) : List BasicMove :=
+  -- Map inv_move over the reversed list, then join the results
+  List.flatten (List.map inv_move (List.reverse moves))
+
 open BasicMove
 def view_corner_cycle : IO Unit := do
   let moves : List BasicMove := [R, R, R, D, D, D, R, U, U, U, R, R, R, D, R, U]
@@ -1024,12 +1034,12 @@ def view_test : IO Unit := do
   let moves : List BasicMove := [R,U,F, CR, CU, CF, L, D, B, CL, CD, CB]
   let final_state := apply_move_list moves initialState
   printUnfoldedCube (stateToVisual final_state)
--- rotate Y
-def view_rotL : IO Unit := do
-  let final_state := rotateCubeY2 (apply_move BasicMove.R (rotateCubeY2 initialState))
 
+def view_test_2 : IO Unit := do
+  let moves : List BasicMove := [R,U,F, CR, CU, CF, L, D, B, CL, CD, CB]
+  let final_state := apply_move_list moves initialState
+  let final_state := apply_move_list (inv_move_list moves) final_state
   printUnfoldedCube (stateToVisual final_state)
--- To run these (ensure all helpers like getEdgeStickerIndex are implemented):
 #eval view_initial
 #eval view_after_R
 #eval view_after_U
@@ -1049,8 +1059,7 @@ def view_rotL : IO Unit := do
 #eval view_center_cycle
 #eval view_test
 #eval view_URUinv
-
-#eval view_rotL
+#eval view_test_2
 ------------------------------------------
 
 
