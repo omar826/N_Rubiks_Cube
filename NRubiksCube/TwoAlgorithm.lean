@@ -136,6 +136,30 @@ theorem cornerEquiv_cycleCorners (c₁ c₂ c₃ : Corner) :
     simp [cornerEquiv_cycleCornersAux, ← mul_assoc]
     rw [fixCorners₃_move₁ h'.1 h'.2.2.symm, fixCorners₃_move₂ _ h'.2.1, Equiv.cycle, if_neg h]
 
+/-- A sequence of moves swapping `Corner.mk U B L` and `Corner.mk U L F`. -/
+def swapCornersAux : Moves :=
+  [L, U, U, L, L, L, U, U, U, L, U, U, R, R, R, U, L, L, L, U, U, U, R]
+
+private theorem cornerEquiv_swapCornersAux :
+    cornerEquiv (move swapCornersAux) = Equiv.swap (Corner.mk U B L) (Corner.mk U L F) := by
+  decide
+
+/-- A sequence of moves that cycles two corners. -/
+def swapCorners (c₁ c₂ : Corner) : Moves :=
+  if c₁ = c₂ then [] else
+    let m := Moves.fixCorners₂ c₁ c₂
+    m ++ Moves.swapCornersAux ++ m.symm
+
+@[simp]
+theorem cornerEquiv_swapCorners (c₁ c₂ : Corner) :
+    cornerEquiv (move (swapCorners c₁ c₂)) = Equiv.swap c₁ c₂ := by
+  rw [swapCorners]
+  split_ifs with h
+  · simp [h]
+    rfl
+  · simp [cornerEquiv_swapCornersAux, ← mul_assoc]
+    simp [fixCorners₂_move₁ h]
+
 /-- A sequence of moves rotating `Corner.mk U B L` **clockwise** and, `Corner.mk U L F`
 **counterclockwise**. -/
 def rotateCornersAux : Moves :=
@@ -192,20 +216,19 @@ def solveCornersAux (cube : TwoRubik) : List Corner → Moves
     let cube' := cube * move m
     m ++ solveCornersAux cube' ((b::c::l).filter fun e ↦ cornerEquiv cube' e ≠ e)
   | a::b::_l =>
-    let prem := Moves.fixCorners₂ a b
-    let cube' := cube * move (prem ++ Moves.U)
-    let c := (cornerEquiv cube') ((cornerEquiv cube).symm b)
-    let d := (cornerEquiv cube') ((cornerEquiv cube).symm c)
-    let m := Moves.cycleCorners a c d ++ prem.symm
-    m
+    Moves.swapCorners a b
   | _ => []
 termination_by l => l.length
 decreasing_by exact List.length_filter_lt _ _ _
 
 theorem solveCornersAux_cornerEquiv (cube : TwoRubik) (l : List Corner) (hl : l.Nodup)
     (hc : ∀ c, c ∈ l ↔ cornerEquiv cube c ≠ c) :
-    cornerEquiv (TwoIllegalRubik.move (solveCornersAux cube l)) = cornerEquiv cube⁻¹ := by
-  sorry
+    cornerEquiv (TwoIllegalRubik.move (solveCornersAux cube l)) = cornerEquiv cube⁻¹ :=
+  match l with
+  | [] => by simpa [solveCornersAux, Equiv.ext_iff] using hc
+  | [a] => by simp [Equiv.not_equiv_ne_iff] at hc
+  | [a, b] => by sorry
+  | a::b::c::_l => by sorry
 
 /-- A sequence of moves that puts the cube's corners in their correct position. -/
 def solveCorners (cube : TwoRubik) : Moves :=
@@ -251,8 +274,42 @@ decreasing_by exact List.length_filter_lt _ _ _
 theorem solveCornerPiecesAux_cornerPieceEquiv (cube : TwoRubik) (l : List Corner) (hl : l.Nodup)
     (h : cornerEquiv cube = 1) (hc : ∀ c, c ∈ l ↔ cornerValue cube c ≠ 0) :
     cornerPieceEquiv (TwoIllegalRubik.move (solveCornerPiecesAux cube l)) =
-    cornerPieceEquiv cube⁻¹ := by
-  sorry
+    cornerPieceEquiv cube⁻¹ :=
+  match l with
+  | [] => by
+    simp_rw [List.not_mem_nil, false_iff, not_not] at hc
+    ext c
+    simp_rw [solveCornerPiecesAux]
+    rw [TwoIllegalRubik.move_nil, cornerPieceEquiv_one, Equiv.Perm.one_apply, cornerPieceEquiv_inv,
+      Equiv.Perm.inv_def, Equiv.eq_symm_apply, ← cornerValue_eq_zero]
+    · exact hc _
+    · exact h
+  | [a] => by
+    apply (not_ne_iff.2 (TwoRubik.isValid cube).cornerRotation _).elim
+    obtain hx | hx | hx := ZMod.cases (TwoIllegalRubik.cornerValue cube a)
+    · cases (hc a).1 (List.mem_singleton_self a) hx
+    · suffices cube = TwoIllegalRubik.rotateCorner a by
+        rw [this, cornerRotation_rotateCorner]
+        decide
+      ext e
+      · obtain rfl | ha := eq_or_ne a ⟦e⟧
+        · rwa [cornerPieceEquiv_rotateCorner_self, ← cornerValue_eq_one]
+          exact h
+        · rwa [cornerPieceEquiv_rotateCorner, Corner.rotateEquiv_of_ne ha,
+            ← cornerValue_eq_zero, ← not_ne_iff, ← hc, List.mem_singleton, eq_comm]
+          exact h
+    · suffices cube = (TwoIllegalRubik.rotateCorner a)⁻¹ by
+        rw [this, map_inv, cornerRotation_rotateCorner]
+        decide
+      ext e
+      · rw [cornerPieceEquiv_inv]
+        obtain rfl | ha := eq_or_ne a ⟦e⟧
+        · rwa [cornerPieceEquiv_rotateCorner_inv_self, ← cornerValue_eq_two]
+          exact h
+        · rwa [cornerPieceEquiv_rotateCorner, Corner.rotateEquiv_inv_of_ne ha,
+            ← cornerValue_eq_zero, ← not_ne_iff, ← hc, List.mem_singleton, eq_comm]
+          exact h
+  | a::b::l => by sorry
 
 /-- A sequence of moves that puts the cube's corners in their correct orientation. -/
 def solveCornerPieces (cube : TwoRubik) : Moves :=

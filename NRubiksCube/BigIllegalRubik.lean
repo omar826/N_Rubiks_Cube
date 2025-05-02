@@ -377,23 +377,6 @@ theorem cornerEquiv_of_cornerPieceEquiv_eq_one (n : {m : ℕ // m ≥ 5}) {cube 
   refine c.inductionOn ?_
   simp [cornerEquiv_mk, h]
 
-/-- A Rubik's cube defines a permutation of centre square edges for each k-value -/
-def centreSquareEdgeKEquiv (n : {m : ℕ // m ≥ 5}) (k : Fin (n.val - 4))
-(h : k.val % 2 = (n.val + 1) % 2) :
-BigIllegalRubik n →* Perm (CentreSquareEdgeK ⟨n.val, by omega⟩ k h) where
-  toFun cube := sorry
-  map_one' := sorry
-  map_mul' := sorry
-
-/-- A Rubik's cube defines a permutation of centre square corners for each k-value -/
-def centreSquareCornerKEquiv (n : {m : ℕ // m ≥ 5}) (k : Fin (n.val - 3))
-(h : k.val % 2 = n.val % 2) :
-BigIllegalRubik n →*
-Perm (CentreSquareCornerK ⟨n.val, by omega⟩ ⟨k.val, by simp⟩ h) where
-  toFun := sorry
-  map_one' := sorry
-  map_mul' := sorry
-
 /-- In a Big Rubik's cube where all edges are in their correct position, the "edge value" of an edge
 represents whether it's flipped or not. -/
 def edgeValue {n : {m : ℕ // m ≥ 5}} (cube : BigIllegalRubik n) (e : Edge ⟨n.val, by omega⟩) :

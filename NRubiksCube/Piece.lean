@@ -7,6 +7,8 @@ Some parts have been modified significantly.
 -/
 import Mathlib.Combinatorics.Colex
 import Mathlib.Data.Finset.Sort
+import Mathlib.Data.Finset.Basic
+import Mathlib.Data.Finset.Card
 import Mathlib.Data.ZMod.Defs
 import NRubiksCube.Equiv
 import NRubiksCube.Orientation
@@ -501,12 +503,78 @@ theorem equiv_def {n : {m : ℕ // m ≥ 3}} {e₁ e₂ : EdgePiece n} :
 theorem flip_equiv {n : {m : ℕ // m ≥ 3}} (e : EdgePiece n) : e.flip ≈ e := by
   simp [equiv_def, e.flip_toFinset]
 
+@[simp]
+theorem finset_pair_eq_iff {α : Type*} [DecidableEq α] {a b x y : α} (h₁ : a ≠ b) (h₂ : x ≠ y) :
+    ({a, b} : Finset α) = ({x, y} : Finset α) ↔ (a = x ∧ b = y) ∨ (a = y ∧ b = x) := by
+  simp [Finset.ext_iff, Finset.mem_insert, Finset.mem_singleton, or_self]
+  constructor
+  · intro H
+    have ha := H a
+    simp [h₁] at ha
+    have hb := H b
+    simp [Ne.symm h₁] at hb
+    cases ha with
+    | inl ha_eq_x =>
+      cases hb with
+      | inl hb_eq_x =>
+          exfalso; exact h₁ (ha_eq_x ▸ hb_eq_x.symm)
+      | inr hb_eq_y =>
+          left; exact ⟨ha_eq_x, hb_eq_y⟩
+    | inr ha_eq_y =>
+      cases hb with
+      | inl hb_eq_x =>
+          right; exact ⟨ha_eq_y, hb_eq_x⟩
+      | inr hb_eq_y =>
+          exfalso; exact h₁ (ha_eq_y ▸ hb_eq_y.symm)
+  · intro H
+    intro z
+    cases H with
+    | inl h_match =>
+      simp_all only [ne_eq, not_false_eq_true]
+    | inr h_swap =>
+      simp_all only [ne_eq]
+      obtain ⟨left, right⟩ := h_swap
+      subst left right
+      apply Iff.intro
+      · intro a_1
+        cases a_1 with
+        | inl h =>
+          subst h
+          simp_all only [or_true]
+        | inr h_1 =>
+          subst h_1
+          simp_all only [or_false]
+      · intro a_1
+        cases a_1 with
+        | inl h =>
+          subst h
+          simp_all only [or_true]
+        | inr h_1 =>
+          subst h_1
+          simp_all only [or_false]
+
 theorem equiv_iff (n : {m : ℕ // m ≥ 3}) :
     ∀ {e₁ e₂ : EdgePiece n}, e₁ ≈ e₂ ↔ e₁ = e₂ ∨ e₁ = e₂.flip := by
     intro e₁ e₂
     constructor
     · intro h
-      sorry
+      simp [equiv_def] at h
+      obtain ⟨h₁, h₂⟩ := h
+      have h₃ : e₁.toFinset.val = e₂.toFinset.val := by simp [h₁]
+      have p₁ : e₁.fst ≠ e₁.snd := e₁.isAdjacent.ne
+      have p₂ : e₂.fst ≠ e₂.snd := e₂.isAdjacent.ne
+      simp [toFinset_val] at h₃
+      have h₄ : e₁.fst = e₂.fst ∧ e₁.snd = e₂.snd ∨ e₁.fst = e₂.snd ∧ e₁.snd = e₂.fst := by
+        apply (finset_pair_eq_iff p₁ p₂).1
+        apply Finset.eq_of_veq
+        simp_all only [ne_eq, Finset.insert_val, Finset.singleton_val, Multiset.mem_singleton,
+        not_false_eq_true, Multiset.ndinsert_of_not_mem]
+      by_cases c : e₁.fst = e₂.fst ∧ e₁.snd = e₂.snd
+      · left
+        simp [ext_iff, c, h₂]
+      · simp [c] at h₄
+        right
+        simp [ext_iff, h₄, h₂]
     · intro h
       by_cases h₁ : e₁ = e₂
       · simp [h₁, EdgePiece.equiv_def]

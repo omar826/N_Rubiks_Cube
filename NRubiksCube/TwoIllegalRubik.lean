@@ -14,6 +14,14 @@ surjective group homomorphism into `ℤ₃` whose kernel will be shown to consis
 solvable Rubik's cubes.
 -/
 
+/-- The map `1 → 0`, `-1 → 1`. -/
+def Units.toZMod (x : ℤˣ) : ZMod 2 :=
+  if x = 1 then 0 else 1
+
+@[simp]
+theorem Units.toZMod_mul : ∀ x y : ℤˣ, (x * y).toZMod = x.toZMod + y.toZMod := by
+  decide
+
 theorem ZMod.cases : ∀ x : ZMod 3, x = 0 ∨ x = 1 ∨ x = 2 := by
   decide
 
@@ -40,6 +48,9 @@ theorem ext (h : ∀ (c : CornerPiece), cube₁.cornerPieceEquiv c = cube₂.cor
   let ⟨c₂, _⟩ := cube₂
   simp [Equiv.ext_iff]
   exact h
+
+instance decEq : DecidableEq TwoIllegalRubik :=
+  fun _ _ ↦ decidable_of_iff _ TwoIllegalRubik.ext_iff.symm
 
 /-- The solved 2×2×2 Rubik's cube. -/
 instance : One TwoIllegalRubik where
@@ -282,7 +293,7 @@ def invariant : TwoIllegalRubik →* Multiplicative (ZMod 3) :=
 
 /-- A constructive right inverse for the invariant. -/
 def invariant_inv : Multiplicative (ZMod 3) → TwoIllegalRubik :=
-  fun a ↦ (rotateCorner default) ^ a.1
+  fun a ↦ (rotateCorner default) ^ (Multiplicative.toAdd a).val
 
 theorem invariant_leftInverse : Function.LeftInverse invariant invariant_inv := by
   sorry
