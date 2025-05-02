@@ -56,6 +56,9 @@ def initialState : CubeState where
   corner_ori  := fun _ => 0
   edge_ori    := fun _ => 0
 
+instance : One CubeState where
+  one := initialState
+
 -- ## Basic Moves
 inductive BasicMove
   | R | L | U | D | F | B  -- Outer faces
