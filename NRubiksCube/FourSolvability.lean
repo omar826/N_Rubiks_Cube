@@ -7,6 +7,9 @@ import Mathlib.GroupTheory.SpecificGroups.Alternating -- For AlternatingGroup de
 import Mathlib.Data.List.Induction
 import NRubiksCube.FourRubik -- Assuming your main file is named FourRubik.lean
 
+set_option maxRecDepth 10000
+set_option maxHeartbeats 10000000
+
 /-!
 # Solvability Conditions for the 4x4x4 Rubik's Revenge
 
@@ -59,7 +62,7 @@ def checkCornerTwist (s : CubeState) : Prop :=
 -- Helper function to get the EdgeType (A or B) associated with an EdgeSlot index
 -- Based on our convention: even index = A, odd index = B
 def getSlotType (slot : EdgeSlot) : Orientation.EdgeType :=
-  if slot.val % 2 = 0 then Orientation.EdgeType.A else Orientation.EdgeType.B
+  if slot % 2 = 0 then Orientation.EdgeType.A else Orientation.EdgeType.B
 
 -- Helper function to get the EdgeType (A or B) associated with the *original* piece
 -- that currently resides in the given slot 'i' in state 's'.
@@ -454,7 +457,7 @@ example : (apply_move_list fixed_corner_3_cycle_seq initialState).corner_perm = 
 
 -- 4. State the full lemma (still likely needs sorry for other parts)
 theorem fixed_corner_3_cycle_seq_effect :
-    ∃ (s : CubeState), s = apply_move_list fixed_corner_3_cycle_seq initialState ∧
+    ∃ (s : CubeState), s = apply_move_list fixed_corner_3_cycle_seq 1 ∧
                        IsSolvable s ∧
                        s.corner_perm = target_corner_perm ∧
                        s.edge_perm = 1 ∧
@@ -496,7 +499,7 @@ theorem corner_conjugation_works (i j k : CornerSlot)
     (h_distinct : i ≠ j ∧ i ≠ k ∧ j ≠ k) :
     ∃ (g : Moves), -- The setup moves 'g'
       ∃ (s_conj : CubeState), -- The state after applying g * m * g⁻¹
-         s_conj = apply_move_list (g ++ fixed_corner_3_cycle_seq ++ inv_move_list g) initialState ∧
+         s_conj = apply_move_list (g ++ fixed_corner_3_cycle_seq ++ inv_move_list g) 1 ∧
          IsSolvable s_conj ∧
          s_conj.corner_perm = (Equiv.cycle i j k) ∧ -- The desired 3-cycle
          s_conj.edge_perm = 1 ∧
@@ -551,7 +554,8 @@ theorem lemma6_corner_twist_solvability (s : CubeState)
 -/
 
 -- Step 1: Show the initial state satisfies the condition.
-theorem lemma7_step1_initial_state : checkEdgeFlip initialState := by
+theorem one_check_edge_flip : checkEdgeFlip 1 := by
+  show checkEdgeFlip initialState
   intro i
   -- Add Perm.one_apply (or just one_apply if Equiv is open) to the simp list
   simp only [initialState, getPieceTypeInSlot, checkEdgeFlip, edgeDelta, inv_one, Perm.one_apply]
@@ -561,11 +565,10 @@ theorem lemma7_step1_initial_state : checkEdgeFlip initialState := by
 
 -- Step 2: Show that applying any move preserves the edge flip condition.
 -- This is the most complex invariance proof.
-theorem lemma7_step2_move_invariance (m : BasicMove) (s : CubeState) :
+theorem move_check_edge_flip (m : BasicMove) (s : CubeState) :
     checkEdgeFlip s → checkEdgeFlip (apply_move m s) := by
   intro h_edge_flip -- Assume ∀ (j : EdgeSlot), s.edge_ori j = 1 - edgeDelta (getSlotType j) (getPieceTypeInSlot s j)
   intro i -- Goal: (apply_move m s).edge_ori i = 1 - edgeDelta (getSlotType i) (getPieceTypeInSlot (apply_move m s) i)
-  let s' := apply_move m s
   -- Unfold the definition of s'.edge_ori from apply_move
   -- Need to use cases on m or the apply_move_internal structure
   -- Let p_e be the edge permutation for move m, d_e be the edge delta for move m
@@ -576,7 +579,246 @@ theorem lemma7_step2_move_invariance (m : BasicMove) (s : CubeState) :
   -- and analyzing how d_e interacts with the edgeDelta formula.
   -- This proof is highly non-trivial and depends heavily on the exact permutations
   -- and the definition of edge flip delta for slice moves.
-  sorry
+  match m with
+  | R =>
+    rw [getSlotType, getPieceTypeInSlot, getSlotType]
+    split_ifs with h₁ h₂ h₃
+    <;> simp only [edgeDelta, reduceCtorEq, ↓reduceIte, sub_zero, sub_self]
+    <;> simp_all [apply_move]
+    · rw [h_edge_flip (r_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (r_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (r_move_edge_perm⁻¹ i)) = 1 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_pos]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_pos h₂]
+      apply if_pos
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (r_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (r_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (r_move_edge_perm⁻¹ i)) = 0 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_neg]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_neg h₂]
+      simp only [Fin.isValue, ite_eq_right_iff, reduceCtorEq, imp_false, Decidable.not_not]
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (r_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (r_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (r_move_edge_perm⁻¹ i)) = 0 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_neg]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_pos h₃]
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (r_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (r_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (r_move_edge_perm⁻¹ i)) = 1 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_pos]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_neg h₃]
+      fin_cases i
+      <;> simp_all <;> decide
+  | L =>
+    rw [getSlotType, getPieceTypeInSlot, getSlotType]
+    split_ifs with h₁ h₂ h₃
+    <;> simp only [edgeDelta, reduceCtorEq, ↓reduceIte, sub_zero, sub_self]
+    <;> simp_all [apply_move]
+    · rw [h_edge_flip (l_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (l_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (l_move_edge_perm⁻¹ i)) = 1 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_pos]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_pos h₂]
+      apply if_pos
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (l_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (l_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (l_move_edge_perm⁻¹ i)) = 0 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_neg]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_neg h₂]
+      simp only [Fin.isValue, ite_eq_right_iff, reduceCtorEq, imp_false, Decidable.not_not]
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (l_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (l_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (l_move_edge_perm⁻¹ i)) = 0 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_neg]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_pos h₃]
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (l_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (l_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (l_move_edge_perm⁻¹ i)) = 1 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_pos]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_neg h₃]
+      fin_cases i
+      <;> simp_all <;> decide
+  | U =>
+    rw [getSlotType, getPieceTypeInSlot, getSlotType]
+    split_ifs with h₁ h₂ h₃
+    <;> simp only [edgeDelta, reduceCtorEq, ↓reduceIte, sub_zero, sub_self]
+    <;> simp_all [apply_move]
+    · rw [h_edge_flip (u_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (u_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (u_move_edge_perm⁻¹ i)) = 1 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_pos]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_pos h₂]
+      apply if_pos
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (u_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (u_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (u_move_edge_perm⁻¹ i)) = 0 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_neg]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_neg h₂]
+      simp only [Fin.isValue, ite_eq_right_iff, reduceCtorEq, imp_false, Decidable.not_not]
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (u_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (u_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (u_move_edge_perm⁻¹ i)) = 0 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_neg]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_pos h₃]
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (u_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (u_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (u_move_edge_perm⁻¹ i)) = 1 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_pos]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_neg h₃]
+      fin_cases i
+      <;> simp_all <;> decide
+  | D =>
+    rw [getSlotType, getPieceTypeInSlot, getSlotType]
+    split_ifs with h₁ h₂ h₃
+    <;> simp only [edgeDelta, reduceCtorEq, ↓reduceIte, sub_zero, sub_self]
+    <;> simp_all [apply_move]
+    · rw [h_edge_flip (d_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (d_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (d_move_edge_perm⁻¹ i)) = 1 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_pos]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_pos h₂]
+      apply if_pos
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (d_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (d_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (d_move_edge_perm⁻¹ i)) = 0 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_neg]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_neg h₂]
+      simp only [Fin.isValue, ite_eq_right_iff, reduceCtorEq, imp_false, Decidable.not_not]
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (d_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (d_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (d_move_edge_perm⁻¹ i)) = 0 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_neg]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_pos h₃]
+      fin_cases i
+      <;> simp_all <;> decide
+    · rw [h_edge_flip (d_move_edge_perm⁻¹ i)]
+      suffices edgeDelta (getSlotType (d_move_edge_perm⁻¹ i))
+          (getPieceTypeInSlot s (d_move_edge_perm⁻¹ i)) = 1 by
+        rw [this]
+        simp
+      rw [edgeDelta, if_pos]
+      rw [getPieceTypeInSlot]
+      rw [getSlotType, getSlotType]
+      rw [if_neg h₃]
+      fin_cases i
+      <;> simp_all <;> decide
+  | F =>
+    rw [getSlotType, getPieceTypeInSlot, getSlotType]
+    split_ifs with h₁ h₂ h₃
+    <;> simp only [edgeDelta, reduceCtorEq, ↓reduceIte, sub_zero, sub_self]
+    <;> simp_all [apply_move]
+    · rw [h_edge_flip (f_move_edge_perm⁻¹ i)]
+      by_cases p : f_move_edge_perm⁻¹ i ∈ f_slice_edges
+      · sorry
+      · rw [f_move_edge_ori_delta, if_neg p]
+        suffices edgeDelta (getSlotType (f_move_edge_perm⁻¹ i))
+            (getPieceTypeInSlot s (f_move_edge_perm⁻¹ i)) = 1 by
+          rw [this]
+          simp
+        rw [edgeDelta, if_pos]
+        rw [getPieceTypeInSlot]
+        rw [getSlotType, getSlotType]
+        rw [if_pos h₂]
+        apply if_pos
+        fin_cases i
+        <;> simp_all <;> try decide
+        · exfalso
+          simp [f_slice_edges] at p
+          rcases p with ⟨_, _, _, _, _, _, _, h_ne_9⟩
+          apply h_ne_9
+          decide
+        · sorry
+        · sorry
+        · sorry
+    · sorry
+    · sorry
+  | B => sorry
+  | CR => sorry
+  | CL => sorry
+  | CU => sorry
+
 
 /-- Lemma 7: The edge flip condition `checkEdgeFlip` is invariant under solvable moves. -/
 
@@ -608,7 +850,7 @@ theorem lemma7_edge_flip_invariant (s : CubeState) (h_solv : IsSolvable s) :
   obtain ⟨moves, h_s_eq⟩ := h_solv -- Get the move list from the IsSolvable definition
   rw [h_s_eq] -- Substitute s with apply_move_list moves initialState
   -- Apply the helper lemma, starting from initialState
-  apply moves_preserves_checkEdgeFlip moves initialState
+  apply moves_preserves_checkEdgeFlip moves 1
   -- The remaining goal is checkEdgeFlip initialState
   exact lemma7_step1_initial_state -- Use the base case proof
 
