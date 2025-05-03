@@ -25,7 +25,6 @@ A configuration `s : CubeState` is solvable if and only if:
 namespace FourRubik -- Continue in the same namespace
 
 open BigOperators -- For Finset.sum notation
-
 open Equiv -- For Equiv.Perm
 
 open FourRubik
@@ -442,16 +441,53 @@ open BasicMove -- For BasicMove notation
 def fixed_corner_3_cycle_seq : List BasicMove :=
   r' ++ d' ++ r ++ u' ++ r' ++ d ++ r ++ u
 
--- Lemma stating the effect of the fixed 3-cycle sequence 'm'
--- NOTE: The specific cycle (c_urf c_urb c_ulb) needs to be verified for this sequence!
+-- 2. Define the target permutation
+-- Cycle URF(1) -> URB(2) -> ULB(3) -> URF(1)
+-- This is swap 1 3 * swap 1 2
+def target_corner_perm : Perm CornerSlot :=
+  Equiv.cycle c_urf c_ufl c_drf
+
+-- 3. State and try to prove the corner permutation equality using decide
+-- This requires apply_move to be fully defined for R, U, D without sorry
+example : (apply_move_list fixed_corner_3_cycle_seq initialState).corner_perm = target_corner_perm := by
+  native_decide -- Use native_decide for potentially faster computation
+
+-- 4. State the full lemma (still likely needs sorry for other parts)
 theorem fixed_corner_3_cycle_seq_effect :
     ∃ (s : CubeState), s = apply_move_list fixed_corner_3_cycle_seq initialState ∧
                        IsSolvable s ∧
-                       s.corner_perm = Equiv.cycle c_urf c_urb c_ulb ∧ -- Assumed cycle
+                       s.corner_perm = target_corner_perm ∧
                        s.edge_perm = 1 ∧
                        s.center_perm = 1 ∧
-                       s.edge_ori = fun _ => 0 :=
-  sorry -- Requires proving the effect of the specific sequence 'm'
+                       s.edge_ori = fun _ => 0 := by
+  -- Define the state
+  let s := apply_move_list fixed_corner_3_cycle_seq initialState
+  use s
+  -- Prove the properties
+  constructor
+  · -- Proof of s = apply_move_list ...
+    rfl
+  · constructor
+    · -- Proof of IsSolvable s
+      use fixed_corner_3_cycle_seq; rfl
+    · constructor
+      · -- Proof of s.corner_perm = target_corner_perm
+        -- Try to compute and check equality
+        native_decide -- If this works, the corner perm is correct
+        -- If native_decide fails, replace with sorry
+        -- sorry
+      · constructor
+        · -- Proof of s.edge_perm = 1
+          -- Requires computing the edge permutation product
+          native_decide --might work here too if apply_move is complete
+        · constructor
+          · -- Proof of s.center_perm = 1
+            -- Requires computing the center permutation product
+            native_decide --might work here too
+          · -- Proof of s.edge_ori = fun _ => 0
+            -- Requires computing the final edge_ori function
+            native_decide -- Needs funext and calculation based on apply_move
+
 
 -- Lemma asserting the existence of setup moves 'g' such that the conjugate g*m*g⁻¹
 -- performs the desired 3-cycle (i j k) while preserving other piece types / edge orientations.
@@ -544,6 +580,7 @@ theorem lemma7_step2_move_invariance (m : BasicMove) (s : CubeState) :
 
 /-- Lemma 7: The edge flip condition `checkEdgeFlip` is invariant under solvable moves. -/
 
+
 theorem moves_preserves_checkEdgeFlip (moves : List BasicMove) (s : CubeState) :
     checkEdgeFlip s → checkEdgeFlip (apply_move_list moves s) := by
   induction moves generalizing s with
@@ -576,7 +613,80 @@ theorem lemma7_edge_flip_invariant (s : CubeState) (h_solv : IsSolvable s) :
   exact lemma7_step1_initial_state -- Use the base case proof
 
 
+lemma apply_move_list_inv_move_cancel (m : BasicMove) (s : CubeState) :
+    apply_move_list (inv_move m) (apply_move m s) = s := by
+  simp only [inv_move, apply_move_list, List.foldl_cons, List.foldl_nil]
+  -- Goal: apply_move m (apply_move m (apply_move m (apply_move m s))) = s
+  -- This requires proving that (apply_move m)^4 = id
+  sorry -- Placeholder for proof that apply_move^4 = id
+
+-- Lemma: apply_move_list distributes over concatenation (from right)
+lemma apply_move_list_append (L1 L2 : List BasicMove) (s : CubeState) :
+    apply_move_list (L1 ++ L2) s = apply_move_list L2 (apply_move_list L1 s) := by
+  -- Proof by induction on L1, using properties of foldl
+  induction L1 generalizing s with
+  | nil => -- Base case: L1 = []
+    -- Goal: apply_move_list ([] ++ L2) s = apply_move_list L2 (apply_move_list [] s)
+    simp only [
+        List.nil_append, -- Simplifies LHS: [] ++ L2 = L2
+        apply_move_list, -- Unfolds apply_move_list on RHS
+        List.foldl_nil   -- Simplifies apply_move_list [] s = s
+      ]
+    -- Goal after simp: apply_move_list L2 s = apply_move_list L2 s
+
+  | cons m ms ih => -- Inductive step for move 'm' and remaining list 'ms'
+    -- Goal: apply_move_list (m :: (ms ++ L2)) s = apply_move_list L2 (apply_move_list (m :: ms) s)
+    -- Simplify both sides using the definition and foldl properties
+    simp only [apply_move_list, List.foldl_cons, List.cons_append]
+    -- Goal is now:
+    -- apply_move_list (ms ++ L2) (apply_move m s) = apply_move_list L2 (apply_move_list ms (apply_move m s))
+    -- This matches the inductive hypothesis applied to the state (apply_move m s)
+    exact ih (apply_move m s)
+
+theorem isSolvable_of_apply_move_solvable (m : BasicMove) (s : CubeState) :
+    IsSolvable (apply_move m s) → IsSolvable s := by
+  intro h_solv_ms
+  obtain ⟨M, h_eq⟩ := h_solv_ms
+  -- Propose the sequence derived from the calculation
+  use (M ++ inv_move m) -- Changed order here!
+  -- Goal: s = apply_move_list (M ++ inv_move m) initialState
+
+  -- Start with the cancellation property for s
+  have h_cancel : s = apply_move_list (inv_move m) (apply_move m s) :=
+    (apply_move_list_inv_move_cancel m s).symm
+
+  -- Substitute the assumption h_eq into h_cancel
+  rw [h_eq] at h_cancel
+  -- h_cancel is now: s = apply_move_list (inv_move m) (apply_move_list M initialState)
+
+  -- Apply the append lemma BACKWARDS to the RHS of h_cancel
+  rw [← apply_move_list_append] at h_cancel
+  -- h_cancel is now: s = apply_move_list (M ++ inv_move m) initialState
+
+  -- This is exactly the goal
+  exact h_cancel
+
+-- Need helper lemma: apply_move_list [m] s = apply_move m s
+lemma apply_move_list_singleton (m : BasicMove) (s : CubeState) :
+  apply_move_list [m] s = apply_move m s := by
+  simp [apply_move_list, List.foldl_cons, List.foldl_nil]
+
+
+theorem solvability_iff_apply_move (m : BasicMove) (s : CubeState) :
+    IsSolvable (apply_move m s) ↔ IsSolvable s := by
+  constructor
+  · exact isSolvable_of_apply_move_solvable m s
+  · -- Proof for IsSolvable s → IsSolvable (apply_move m s)
+    intro h_solv_s
+    obtain ⟨M, h_s_eq⟩ := h_solv_s
+    use (M ++ [m]) -- Propose new move list
+    rw [apply_move_list_append, h_s_eq, apply_move_list_singleton]
+
+
+
 -- ## Main Solvability Theorem Statement
+#check Equiv.Perm.sign
+#check ℤˣ
 
 theorem solvability_iff (s : CubeState) :
     IsSolvable s ↔ checkPermSigns s ∧ checkCornerTwist s ∧ checkEdgeFlip s := by
@@ -591,25 +701,7 @@ theorem solvability_iff (s : CubeState) :
     -- We need to show permSign s.corner_perm = permSign s.center_perm
     -- This follows because for a, b ∈ {-1, 1}, a*b=1 implies a=b
     have h_sign_eq : checkPermSigns s := by
-      simp only [checkPermSigns] -- Goal: Perm.sign s.corner_perm = Perm.sign s.center_perm
-      -- Let a := Perm.sign s.corner_perm
-      -- Let b := Perm.sign s.center_perm
-      -- h_sign_prod : a * b = 1
-      -- We want a = b
-      -- Apply `a` (Perm.sign s.corner_perm) to both sides of `h_sign_prod`
-      have h_sign_eq : checkPermSigns s := by
-        simp only [checkPermSigns] -- Goal: Perm.sign s.corner_perm = Perm.sign s.center_perm
-        -- h_sign_prod : Perm.sign s.corner_perm * Perm.sign s.center_perm = 1
-        -- Use a * b = 1 ↔ a = b⁻¹
-        rw [← mul_eq_one_iff_eq_inv] at h_sign_prod
-        -- Goal is now Perm.sign s.corner_perm = Perm.sign s.center_perm
-        -- h_sign_prod is now Perm.sign s.corner_perm = (Perm.sign s.center_perm)⁻¹
-        -- We need to show (Perm.sign s.center_perm)⁻¹ = Perm.sign s.center_perm
-        rw [h_sign_prod] -- Substitute a = b⁻¹ into the goal a = b
-        -- Goal is now: (Perm.sign s.center_perm)⁻¹ = Perm.sign s.center_perm
-        apply Units.inv_eq_self_iff.mpr -- Use the lemma for units {+1, -1}
-        -- The remaining goal is to show Perm.sign s.center_perm is either 1 or -1
-        exact Perm.sign_eq_one_or_neg_one _
+      sorry
       -- Prove Condition 2: checkCornerTwist s
     have h_twist : checkCornerTwist s :=
       lemma1_corner_twist_invariant s h_solv -- Use Lemma 1
@@ -621,9 +713,111 @@ theorem solvability_iff (s : CubeState) :
     -- Combine the three proven conditions
     exact ⟨h_sign_eq, h_twist, h_edge⟩
 
+
+
+
+
+
   · -- Direction "<=": If a state satisfies the conditions, it is solvable.
     intro h_conditions
-    -- Proof outline using lemmas 3, 4, 5, 6...
+    let ⟨h_sign_s, h_twist_s, h_edge_s⟩ := h_conditions
+
+    -- Step 1: Ensure center permutation ρ is even
+    -- Define s₁ based on the sign of s.center_perm
+    let s₁ : CubeState := if h_center_even : Perm.sign s.center_perm = 1 then s else apply_move BasicMove.R s
+    -- We split the proof based on this 'if' statement using 'dite' (dependent if-then-else)
+
+    -- Prove properties about s₁
+    have h_s₁_solvable_rel : IsSolvable s → IsSolvable s₁ := by
+      intro hs_solv -- Assume IsSolvable s
+      -- Case split on the condition used to define s₁
+      by_cases h_center_even : (Perm.sign s.center_perm = 1)
+      · -- Case 1: Center permutation is even
+        -- We need to show IsSolvable s₁
+        -- Use the definition of s₁ in this case
+        have h_s₁_def : s₁ = s := if_pos h_center_even
+        rw [h_s₁_def] -- Replace s₁ with s in the goal
+        exact hs_solv -- The goal is now IsSolvable s, which we assumed
+      · -- Case 2: Center permutation is odd
+        -- We need to show IsSolvable s₁
+        -- Use the definition of s₁ in this case
+        have h_s₁_def : s₁ = apply_move BasicMove.R s := if_neg h_center_even
+        rw [h_s₁_def] -- Replace s₁ with apply_move R s in the goal
+        -- Goal is IsSolvable (apply_move R s)
+        -- Use the forward direction of solvability_iff_apply_move
+        apply (solvability_iff_apply_move BasicMove.R s).mpr
+        exact hs_solv -- We assumed IsSolvable s
+
+    have h_center_perm_even₁ : Perm.sign s₁.center_perm = 1 := by
+      -- Use by_cases to split on the condition used to define s₁
+      by_cases h_rho_even : (Perm.sign s.center_perm = 1)
+      · -- Case 1: permSign s.center_perm = 1 is true
+        -- In this case, s₁ was defined as s
+        have h_s₁_def : s₁ = s := if_pos h_rho_even
+        rw [h_s₁_def] -- Substitute s₁ with s
+        exact h_rho_even -- The goal is now permSign s.center_perm = 1, which is h_rho_even
+      · -- Case 2: permSign s.center_perm = 1 is false (so sign must be -1)
+        -- In this case, s₁ was defined as apply_move R s
+        have h_s₁_def : s₁ = apply_move BasicMove.R s := if_neg h_rho_even
+        rw [h_s₁_def] -- Substitute s₁
+        simp only [apply_move, MoveImpl.apply_move] -- Unfold apply_move for R case
+        -- Goal: permSign (r_move_center_perm * s.center_perm) = 1
+        rw [Perm.sign_mul] -- sign(p*q) = sign(p)*sign(q)
+        have h_r_sign : Perm.sign r_move_center_perm = -1 := by
+             native_decide -- Or sorry
+        rw [h_r_sign]
+        -- Goal: -1 * permSign s.center_perm = 1
+        -- Prove that permSign s.center_perm must be -1
+        have h_s_sign : Perm.sign s.center_perm = -1 := by
+          -- Use the lemma stating sign is a unit (1 or -1)
+          -- Perm.sign_mem_units returns a proof that sign p ∈ ({1, -1} : Set (Multiplicative ℤ))
+          -- We can use this membership proof with the fact it's not 1
+          have h_mem := Perm.sign_mem_units s.center_perm
+          -- Unfold the definition of the set {1, -1}
+          simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at h_mem
+          -- h_mem is now: permSign s.center_perm = 1 ∨ permSign s.center_perm = -1
+          -- We know it's not 1 from h_rho_even
+          exact Or.resolve_left h_mem h_rho_even -- Conclude it must be -1
+        rw [h_s_sign]
+        -- Goal: -1 * -1 = 1
+        simp -- Should solve this
+        -- rfl -- Alternative
+
+
+    have h_sign₁ : checkPermSigns s₁ := by
+      split_ifs with h_rho_even
+      · -- Case 1: s₁ = s
+        exact h_sign_s -- Use original assumption
+      · -- Case 2: s₁ = apply_move R s
+        simp only [s₁, checkPermSigns, apply_move] -- Unfold definitions
+        simp only -- Access components
+        -- Goal: sign(r_p_c * s_p_c) = sign(r_p_z * s_p_z)
+        rw [Perm.sign_mul, Perm.sign_mul]
+        have h_r_c_sign : permSign r_move_corner_perm = -1 := by sorry -- Sign of 4-cycle
+        have h_r_z_sign : permSign r_move_center_perm = -1 := by sorry -- Sign of 4-cycle
+        rw [h_r_c_sign, h_r_z_sign]
+        -- Goal: -1 * sign(s_p_c) = -1 * sign(s_p_z)
+        -- We know sign(s_p_c) = sign(s_p_z) from h_sign_s
+        rw [h_sign_s]
+
+    have h_twist₁ : checkCornerTwist s₁ := by
+      split_ifs with h_rho_even
+      · -- Case 1: s₁ = s
+        exact h_twist_s -- Use original assumption
+      · -- Case 2: s₁ = apply_move R s
+        simp only [s₁]
+        exact lemma1_step2_move_invariance BasicMove.R s h_twist_s -- Use Lemma 1 invariance
+
+    have h_edge₁ : checkEdgeFlip s₁ := by
+      split_ifs with h_rho_even
+      · -- Case 1: s₁ = s
+        exact h_edge_s -- Use original assumption
+      · -- Case 2: s₁ = apply_move R s
+        simp only [s₁]
+        exact lemma7_step2_move_invariance BasicMove.R s h_edge_s -- Use Lemma 7 invariance
+
+    -- Now continue with Step 2 using s₁, h_center_perm_even₁, h_sign₁, h_twist₁, h_edge₁
+    -- ... rest of the proof ...
     sorry
 
 end FourRubik
