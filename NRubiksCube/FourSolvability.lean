@@ -436,6 +436,39 @@ theorem lemma2_sign_invariant (s : CubeState) (hs : IsSolvable s) :
   let ⟨moves, h⟩ := hs
   rw [h, ← moves_corner_center_sign_invariant, one_corner_center_sign_invariant]
 
+
+open BasicMove -- For BasicMove notation
+
+def fixed_corner_3_cycle_seq : List BasicMove :=
+  r' ++ d' ++ r ++ u' ++ r' ++ d ++ r ++ u
+
+-- Lemma stating the effect of the fixed 3-cycle sequence 'm'
+-- NOTE: The specific cycle (c_urf c_urb c_ulb) needs to be verified for this sequence!
+theorem fixed_corner_3_cycle_seq_effect :
+    ∃ (s : CubeState), s = apply_move_list fixed_corner_3_cycle_seq initialState ∧
+                       IsSolvable s ∧
+                       s.corner_perm = Equiv.cycle c_urf c_urb c_ulb ∧ -- Assumed cycle
+                       s.edge_perm = 1 ∧
+                       s.center_perm = 1 ∧
+                       s.edge_ori = fun _ => 0 :=
+  sorry -- Requires proving the effect of the specific sequence 'm'
+
+-- Lemma asserting the existence of setup moves 'g' such that the conjugate g*m*g⁻¹
+-- performs the desired 3-cycle (i j k) while preserving other piece types / edge orientations.
+-- This relies on the properties of the Rubik's group G₄.
+theorem corner_conjugation_works (i j k : CornerSlot)
+    (h_distinct : i ≠ j ∧ i ≠ k ∧ j ≠ k) :
+    ∃ (g : Moves), -- The setup moves 'g'
+      ∃ (s_conj : CubeState), -- The state after applying g * m * g⁻¹
+         s_conj = apply_move_list (g ++ fixed_corner_3_cycle_seq ++ inv_move_list g) initialState ∧
+         IsSolvable s_conj ∧
+         s_conj.corner_perm = (Equiv.cycle i j k) ∧ -- The desired 3-cycle
+         s_conj.edge_perm = 1 ∧
+         s_conj.center_perm = 1 ∧
+         s_conj.edge_ori = fun _ => 0 :=
+  sorry -- This axiom encapsulates the conjugation principle for pure corner 3-cycles
+
+
 /-- Consequence of Lemma 3 (C ≅ A₈): Any even permutation of corners can be achieved
     by a solvable state that doesn't permute other pieces or affect edge orientation. -/
 theorem lemma3_corner_perm_achievability (σ_target : Perm CornerSlot)
@@ -477,12 +510,120 @@ theorem lemma6_corner_twist_solvability (s : CubeState)
     IsSolvable s :=
   sorry -- Proof relies on existence of pure corner twist algorithms.
 
+/-!
+## Proof of Edge Flip Invariance (Condition 3)
+-/
+
+-- Step 1: Show the initial state satisfies the condition.
+theorem lemma7_step1_initial_state : checkEdgeFlip initialState := by
+  intro i
+  -- Add Perm.one_apply (or just one_apply if Equiv is open) to the simp list
+  simp only [initialState, getPieceTypeInSlot, checkEdgeFlip, edgeDelta, inv_one, Perm.one_apply]
+  -- Goal should now be: 0 = 1 - if getSlotType i = getSlotType i then 1 else 0
+  -- Now this simp call should work
+  simp only [eq_self, if_true, sub_self]
+
+-- Step 2: Show that applying any move preserves the edge flip condition.
+-- This is the most complex invariance proof.
+theorem lemma7_step2_move_invariance (m : BasicMove) (s : CubeState) :
+    checkEdgeFlip s → checkEdgeFlip (apply_move m s) := by
+  intro h_edge_flip -- Assume ∀ (j : EdgeSlot), s.edge_ori j = 1 - edgeDelta (getSlotType j) (getPieceTypeInSlot s j)
+  intro i -- Goal: (apply_move m s).edge_ori i = 1 - edgeDelta (getSlotType i) (getPieceTypeInSlot (apply_move m s) i)
+  let s' := apply_move m s
+  -- Unfold the definition of s'.edge_ori from apply_move
+  -- Need to use cases on m or the apply_move_internal structure
+  -- Let p_e be the edge permutation for move m, d_e be the edge delta for move m
+  -- s'.edge_ori i = s.edge_ori (p_e⁻¹ i) + d_e (p_e⁻¹ i)
+  -- Goal: s.edge_ori (p_e⁻¹ i) + d_e (p_e⁻¹ i) = 1 - edgeDelta (getSlotType i) (getPieceTypeInSlot s' i)
+
+  -- This requires relating getPieceTypeInSlot s' i to getPieceTypeInSlot s (p_e⁻¹ i)
+  -- and analyzing how d_e interacts with the edgeDelta formula.
+  -- This proof is highly non-trivial and depends heavily on the exact permutations
+  -- and the definition of edge flip delta for slice moves.
+  sorry
+
+/-- Lemma 7: The edge flip condition `checkEdgeFlip` is invariant under solvable moves. -/
+
+theorem moves_preserves_checkEdgeFlip (moves : List BasicMove) (s : CubeState) :
+    checkEdgeFlip s → checkEdgeFlip (apply_move_list moves s) := by
+  induction moves generalizing s with
+  | nil => -- Base case
+    intro h
+    simp only [apply_move_list, List.foldl_nil]
+    exact h
+  | cons m ms ih => -- Inductive step
+    intro h
+    -- Use List.foldl_cons to unfold apply_move_list for the cons case
+    simp only [apply_move_list, List.foldl_cons]
+    -- Goal is now: checkEdgeFlip (List.foldl (fun s m' => apply_move m' s) (apply_move m s) ms)
+    -- which is definitionally checkEdgeFlip (apply_move_list ms (apply_move m s))
+    -- We need to show checkEdgeFlip holds for the state *after* move m
+    apply ih -- Apply the inductive hypothesis to the remaining list 'ms'
+    -- The goal for ih is checkEdgeFlip (apply_move m s)
+    -- This requires the single-move invariance lemma
+    apply lemma7_step2_move_invariance m s
+    -- The final goal is checkEdgeFlip s, which is our assumption
+    exact h
+
+/-- Lemma 7: The edge flip condition `checkEdgeFlip` is invariant under solvable moves. -/
+theorem lemma7_edge_flip_invariant (s : CubeState) (h_solv : IsSolvable s) :
+    checkEdgeFlip s := by
+  obtain ⟨moves, h_s_eq⟩ := h_solv -- Get the move list from the IsSolvable definition
+  rw [h_s_eq] -- Substitute s with apply_move_list moves initialState
+  -- Apply the helper lemma, starting from initialState
+  apply moves_preserves_checkEdgeFlip moves initialState
+  -- The remaining goal is checkEdgeFlip initialState
+  exact lemma7_step1_initial_state -- Use the base case proof
+
 
 -- ## Main Solvability Theorem Statement
 
 theorem solvability_iff (s : CubeState) :
     IsSolvable s ↔ checkPermSigns s ∧ checkCornerTwist s ∧ checkEdgeFlip s := by
-  -- Proof is substantial and relies on group theory, commutators, and invariants.
-  sorry
+  constructor
+  · -- Direction "=>": If a state is solvable, it must satisfy the conditions.
+    intro h_solv -- Assume s is solvable: ∃ moves, s = apply_move_list moves initialState
+
+    -- Prove Condition 1: checkPermSigns s
+    -- We use Lemma 2 (sign product invariant)
+    have h_sign_prod : Perm.sign s.corner_perm * Perm.sign s.center_perm = 1 :=
+      lemma2_sign_invariant s h_solv
+    -- We need to show permSign s.corner_perm = permSign s.center_perm
+    -- This follows because for a, b ∈ {-1, 1}, a*b=1 implies a=b
+    have h_sign_eq : checkPermSigns s := by
+      simp only [checkPermSigns] -- Goal: Perm.sign s.corner_perm = Perm.sign s.center_perm
+      -- Let a := Perm.sign s.corner_perm
+      -- Let b := Perm.sign s.center_perm
+      -- h_sign_prod : a * b = 1
+      -- We want a = b
+      -- Apply `a` (Perm.sign s.corner_perm) to both sides of `h_sign_prod`
+      have h_sign_eq : checkPermSigns s := by
+        simp only [checkPermSigns] -- Goal: Perm.sign s.corner_perm = Perm.sign s.center_perm
+        -- h_sign_prod : Perm.sign s.corner_perm * Perm.sign s.center_perm = 1
+        -- Use a * b = 1 ↔ a = b⁻¹
+        rw [← mul_eq_one_iff_eq_inv] at h_sign_prod
+        -- Goal is now Perm.sign s.corner_perm = Perm.sign s.center_perm
+        -- h_sign_prod is now Perm.sign s.corner_perm = (Perm.sign s.center_perm)⁻¹
+        -- We need to show (Perm.sign s.center_perm)⁻¹ = Perm.sign s.center_perm
+        rw [h_sign_prod] -- Substitute a = b⁻¹ into the goal a = b
+        -- Goal is now: (Perm.sign s.center_perm)⁻¹ = Perm.sign s.center_perm
+        apply Units.inv_eq_self_iff.mpr -- Use the lemma for units {+1, -1}
+        -- The remaining goal is to show Perm.sign s.center_perm is either 1 or -1
+        exact Perm.sign_eq_one_or_neg_one _
+      -- Prove Condition 2: checkCornerTwist s
+    have h_twist : checkCornerTwist s :=
+      lemma1_corner_twist_invariant s h_solv -- Use Lemma 1
+
+    -- Prove Condition 3: checkEdgeFlip s
+    have h_edge : checkEdgeFlip s :=
+      lemma7_edge_flip_invariant s h_solv -- Use Lemma 7
+
+    -- Combine the three proven conditions
+    exact ⟨h_sign_eq, h_twist, h_edge⟩
+
+  · -- Direction "<=": If a state satisfies the conditions, it is solvable.
+    intro h_conditions
+    -- Proof outline using lemmas 3, 4, 5, 6...
+    sorry
 
 end FourRubik
