@@ -991,26 +991,26 @@ def stateToVisual (s : CubeState) : Cube n_four :=
   }
 
 -- Example Usage (after finishing getEdgeStickerIndex etc.)
-def view_initial : IO Unit := printUnfoldedCube (stateToVisual initialState)
-def view_after_R : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.R initialState))
-def view_after_U : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.U initialState))
-def view_after_CR : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CR initialState))
-def view_after_D : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.D initialState))
-def view_after_CU : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CU initialState))
-def view_after_F : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.F initialState))
-def view_after_CF : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CF initialState))
-def view_after_CD : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CD initialState))
-def view_after_L : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.L initialState))
-def view_after_CL : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CL initialState))
-def view_after_B : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.B initialState))
-def view_after_CB : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CB initialState))
+def view_initial : IO Unit := printUnfoldedCube (stateToVisual 1)
+def view_after_R : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.R 1))
+def view_after_U : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.U 1))
+def view_after_CR : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CR 1))
+def view_after_D : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.D 1))
+def view_after_CU : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CU 1))
+def view_after_F : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.F 1))
+def view_after_CF : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CF 1))
+def view_after_CD : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CD 1))
+def view_after_L : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.L 1))
+def view_after_CL : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CL 1))
+def view_after_B : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.B 1))
+def view_after_CB : IO Unit := printUnfoldedCube (stateToVisual (apply_move BasicMove.CB 1))
 
 
 def apply_move_list (moves : List BasicMove) (start_state : CubeState) : CubeState :=
   List.foldl (fun s m => apply_move m s) start_state moves
 def view_URUinv : IO Unit := do
   let moves : List BasicMove := [BasicMove.U, BasicMove.R, BasicMove.U, BasicMove.U, BasicMove.U]
-  let final_state := apply_move_list moves initialState
+  let final_state := apply_move_list moves 1
   printUnfoldedCube (stateToVisual final_state)
 
 @[simp]
@@ -1025,22 +1025,22 @@ def inv_move_list (moves : List BasicMove) : List BasicMove :=
 open BasicMove
 def view_corner_cycle : IO Unit := do
   let moves : List BasicMove := [R, R, R, D, D, D, R, U, U, U, R, R, R, D, R, U]
-  let final_state := apply_move_list moves initialState
+  let final_state := apply_move_list moves 1
   printUnfoldedCube (stateToVisual final_state)
 
 def view_center_cycle : IO Unit := do
   let moves : List BasicMove := [CF, CD, CF,CF,CF, CD, CD,CD, U,U,U, CD, CF, CD,CD,CD, CF,CF,CF,U]
-  let final_state := apply_move_list moves initialState
+  let final_state := apply_move_list moves 1
   printUnfoldedCube (stateToVisual final_state)
 
 def view_test : IO Unit := do
   let moves : List BasicMove := [R,U,F, CR, CU, CF, L, D, B, CL, CD, CB]
-  let final_state := apply_move_list moves initialState
+  let final_state := apply_move_list moves 1
   printUnfoldedCube (stateToVisual final_state)
 
 def view_test_2 : IO Unit := do
   let moves : List BasicMove := [R,U,F, CR, CU, CF, L, D, B, CL, CD, CB]
-  let final_state := apply_move_list moves initialState
+  let final_state := apply_move_list moves 1
   let final_state := apply_move_list (inv_move_list moves) final_state
   printUnfoldedCube (stateToVisual final_state)
 #eval view_initial
@@ -1090,7 +1090,7 @@ def view_test_2 : IO Unit := do
 #eval applyCornerOrientation (U, R, F) 1 (⟨1, by decide⟩ : Fin 3)
 
 -- Define the state after one R move
-def state_after_R := apply_move BasicMove.R initialState
+def state_after_R := apply_move BasicMove.R 1
 
 -- Check the orientation values for the affected slots
 

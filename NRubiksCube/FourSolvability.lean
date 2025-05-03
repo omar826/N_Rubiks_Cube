@@ -4,6 +4,7 @@ import Mathlib.Data.Fintype.Basic    -- For Fintype instances
 import Mathlib.Data.ZMod.Basic
 import Mathlib.GroupTheory.SpecificGroups.Alternating -- For AlternatingGroup definition Aₙ
 --import Mathlib.GroupTheory.SpecificGroups.Symmetric -- For SymmetricGroup definition Sₙ
+import Mathlib.Data.List.Induction
 import NRubiksCube.FourRubik -- Assuming your main file is named FourRubik.lean
 
 /-!
@@ -35,24 +36,24 @@ open Indexing
 /-- A CubeState `s` is solvable if it can be reached from the initial state
     by applying a sequence of basic moves. -/
 def IsSolvable (s : CubeState) : Prop :=
-  ∃ (moves : List BasicMove), s = apply_move_list moves initialState
+  ∃ (moves : List BasicMove), s = apply_move_list moves 1
 
 -- ## Condition 1: Permutation Signs
-
--- Helper function to get the sign of a permutation
--- Requires Fintype and DecidableEq instances for the type, which Fin n has.
-def permSign {n : Nat} (p : Equiv.Perm (Fin n)) : Int := Equiv.Perm.sign p
 
 /-- Condition 1: The sign of the corner permutation must equal the sign
     of the center permutation. -/
 def checkPermSigns (s : CubeState) : Prop :=
-  permSign s.corner_perm = permSign s.center_perm
+  Perm.sign s.corner_perm = Perm.sign s.center_perm
 
 -- ## Condition 2: Corner Twist Sum
 
+/-- The sume of corner orientations modulo 3. -/
+def cornerTwist (s : CubeState) : ZMod 3 :=
+  Finset.sum Finset.univ (s.corner_ori)
+
 /-- Condition 2: The sum of corner orientation values must be 0 modulo 3. -/
 def checkCornerTwist (s : CubeState) : Prop :=
-  Finset.sum Finset.univ (fun (i : CornerSlot) => s.corner_ori i) = 0
+  cornerTwist s = 0
 
 -- ## Condition 3: Edge Flip Condition (Requires Helpers)
 
@@ -82,8 +83,9 @@ def checkEdgeFlip (s : CubeState) : Prop :=
 -- ## key lemmas
 
 -- Step 1: Show the initial state satisfies the condition.
-theorem lemma1_step1_initial_state : checkCornerTwist initialState := by
-  simp [checkCornerTwist, initialState, Finset.sum_const_zero]
+theorem lemma1_step1_initial_state : checkCornerTwist 1 := by
+  rw [checkCornerTwist]
+  rfl
 
 def get_move_corner_ori_delta (m : BasicMove) : CornerSlot → ZMod 3 :=
   match m with
@@ -105,114 +107,339 @@ def get_move_corner_perm (m : BasicMove) : Perm CornerSlot :=
 
 theorem sum_corner_ori_delta_eq_zero (m : BasicMove) :
     ∑ (i : CornerSlot), (get_move_corner_ori_delta m) i = 0 := by
-  let delta_func := get_move_corner_ori_delta m
-  simp only [get_move_corner_ori_delta] -- Unfold helper
-  cases m <;> simp only [delta_func] -- Unfold specific delta function or (fun _ => 0)
-  -- Cases U, D, CR, CL, CU, CD, CF, CB become trivial:
-  case D | CR | CL | CU | CD | CF | CB =>
-    simp [Finset.sum_const_zero] -- Sum of (fun _ => 0) is 0
-  case U => simp [u_move_corner_ori_delta]
-  -- Cases R, L, F, B need proof:
-  case R =>
-    simp only [r_move_corner_ori_delta] -- Optional: unfold the definition in the goal
-    -- Rewrite the sum over Fin 8 to a sum over the range 0..7
-    rw [Finset.sum_fin_eq_sum_range]
-    rfl -- This should prove the final equality (6 = 0 in ZMod 3)
+  cases m with
+  | R => rfl
+  | L => rfl
+  | U => rfl
+  | D => rfl
+  | F => rfl
+  | B => rfl
+  | CR => rfl
+  | CL => rfl
+  | CU => rfl
+  | CD => rfl
+  | CF => rfl
+  | CB => rfl
 
-
-   -- Needs proof for R delta sum
-  case L =>
-    simp [l_move_corner_ori_delta]
-    -- Similar to R case, we can use norm_num to evaluate the sum
-    rw [Finset.sum_fin_eq_sum_range]
+theorem moveCornerTwist (m : BasicMove) (s : CubeState) :
+  cornerTwist (apply_move m s) = cornerTwist s:= by
+  unfold cornerTwist
+  cases m with
+  | R =>
+    dsimp [apply_move]
+    rw [Finset.sum_add_distrib]
+    have h : ∑ x, s.corner_ori (r_move_corner_perm⁻¹ x) = cornerTwist s := by
+      rw [r_move_corner_perm, cornerTwist]
+      rw [Equiv.sum_comp]
+    rw [h, cornerTwist, Equiv.sum_comp]
+    simp only [add_eq_left]
     rfl
-  case F =>
-    simp [f_move_corner_ori_delta]
-    -- Similar to R case, we can use norm_num to evaluate the sum
-    rw [Finset.sum_fin_eq_sum_range]
-    norm_num [c_ufl, c_urf, c_urb, c_ulb, c_dfl, c_drf, c_drb, c_dlb]
+  | L =>
+    dsimp [apply_move]
+    rw [Finset.sum_add_distrib]
+    have h : ∑ x, s.corner_ori (l_move_corner_perm⁻¹ x) = cornerTwist s := by
+      rw [l_move_corner_perm, cornerTwist]
+      rw [Equiv.sum_comp]
+    rw [h, cornerTwist, Equiv.sum_comp]
+    simp only [add_eq_left]
     rfl
-  case B =>
-    simp [b_move_corner_ori_delta]
-    -- Similar to R case, we can use norm_num to evaluate the sum
-    rw [Finset.sum_fin_eq_sum_range]
+  | U =>
+    dsimp [apply_move]
+    rw [u_move_corner_perm]
+    rw [Equiv.sum_comp]
+  | D =>
+    dsimp [apply_move]
+    rw [d_move_corner_perm]
+    rw [Equiv.sum_comp]
+  | F =>
+    dsimp [apply_move]
+    rw [Finset.sum_add_distrib]
+    have h : ∑ x, s.corner_ori (f_move_corner_perm⁻¹ x) = cornerTwist s := by
+      rw [f_move_corner_perm, cornerTwist]
+      rw [Equiv.sum_comp]
+    rw [h, cornerTwist, Equiv.sum_comp]
+    simp only [add_eq_left]
     rfl
+  | B =>
+    dsimp [apply_move]
+    rw [Finset.sum_add_distrib]
+    have h : ∑ x, s.corner_ori (b_move_corner_perm⁻¹ x) = cornerTwist s := by
+      rw [b_move_corner_perm, cornerTwist]
+      rw [Equiv.sum_comp]
+    rw [h, cornerTwist, Equiv.sum_comp]
+    simp only [add_eq_left]
+    rfl
+  | CR =>
+    dsimp [apply_move]
+    rw [cr_move_corner_perm]
+    rfl
+  | CL =>
+    dsimp [apply_move]
+    rw [cl_move_corner_perm]
+    rw [Equiv.sum_comp]
+  | CU =>
+    dsimp [apply_move]
+    rw [cu_move_corner_perm]
+    rfl
+  | CD =>
+    dsimp [apply_move]
+    rw [cd_move_corner_perm]
+    rfl
+  | CF =>
+    dsimp [apply_move]
+    rw [cf_move_corner_perm]
+    rfl
+  | CB =>
+    dsimp [apply_move]
+    rw [cb_move_corner_perm]
+    rw [Equiv.sum_comp]
 
 -- Step 3: Show that applying any move preserves the sum-zero property.
 theorem lemma1_step2_move_invariance (m : BasicMove) (s : CubeState) :
     checkCornerTwist s → checkCornerTwist (apply_move m s) := by
-  intro h_sum_zero -- Assume sum s.corner_ori i = 0
-  simp only [checkCornerTwist] -- Unfold definition
-  -- Goal is: ∑ (i : CornerSlot), (apply_move m s).corner_ori i = 0
+  intro h
+  unfold checkCornerTwist at *
+  simp [moveCornerTwist]
+  exact h
 
-  -- Use 'cases m' to handle each move separately
-  cases m with
-  | R => -- Case for R move
-    simp only [apply_move] -- Unfolds the R case definition in apply_move
-    -- Goal is now: ∑ i, (s.corner_ori (r_move_corner_perm⁻¹ i) + r_move_corner_ori_delta (r_move_corner_perm⁻¹ i)) = 0
-    rw [Finset.sum_add_distrib] -- Split sum: ∑ f(p⁻¹ i) + ∑ d(p⁻¹ i) = 0
-    -- Handle the first sum: ∑ s.corner_ori (r_move_corner_perm⁻¹ i)
-    rw [Finset.sum_equiv r_move_corner_perm⁻¹.symm] -- Use the Equiv directly
-    simp -- Use general simp to simplify permutation composition (p⁻¹(p⁻¹.symm i) = p⁻¹(p i) = i)
-    rw [h_sum_zero, zero_add] -- Use the assumption that the original sum was zero
-    -- Handle the second sum: ∑ r_move_corner_ori_delta (r_move_corner_perm⁻¹ i)
-    rw [Finset.sum_equiv r_move_corner_perm⁻¹.symm] -- Use the Equiv directly again
-    simp -- Use general simp to simplify permutation composition
-    -- The goal is now ∑ i, r_move_corner_ori_delta i = 0
-    exact sum_corner_ori_delta_eq_zero BasicMove.R -- This is exactly the previous lemma for R
-
-  | L => -- Case for L move
-    simp only [apply_move] -- Unfolds the L case definition in apply_move
-    rw [Finset.sum_add_distrib]
-    rw [Finset.sum_equiv l_move_corner_perm⁻¹.symm.toEquiv]; simp; rw [h_sum_zero, zero_add]
-    rw [Finset.sum_equiv l_move_corner_perm⁻¹.symm.toEquiv]; simp
-    exact sum_corner_ori_delta_eq_zero BasicMove.L
-
-  | U => -- Case for U move
-    simp only [apply_move]
-    rw [Finset.sum_add_distrib]
-    rw [Finset.sum_equiv u_move_corner_perm⁻¹.symm.toEquiv]; simp; rw [h_sum_zero, zero_add]
-    rw [Finset.sum_equiv u_move_corner_perm⁻¹.symm.toEquiv]; simp
-    exact sum_corner_ori_delta_eq_zero BasicMove.U
-
-  | CR => -- Case for CR move
-    simp only [apply_move]
-    rw [Finset.sum_add_distrib]
-    rw [Finset.sum_equiv cr_move_corner_perm⁻¹.symm.toEquiv]; simp; rw [h_sum_zero, zero_add]
-    rw [Finset.sum_equiv cr_move_corner_perm⁻¹.symm.toEquiv]; simp
-    exact sum_corner_ori_delta_eq_zero BasicMove.CR -- This delta sum is 0
-
-  | D => sorry -- Placeholder for the remaining 8 move cases
-  | F => sorry
-  | B => sorry
-  | CL => sorry
-  | CU => sorry
-  | CD => sorry
-  | CF => sorry
-  | CB => sorry
-
-
+theorem moves_check_corner_twist (moves : List BasicMove) (s : CubeState) :
+    checkCornerTwist s → checkCornerTwist (apply_move_list moves s) := by
+  induction moves using List.reverseRecOn with
+  | nil => intro h; exact h
+  | append_singleton ms m ih =>
+    intro h
+    rw [apply_move_list, List.foldl_append]
+    simp_all only [forall_const, List.foldl_cons, List.foldl_nil]
+    apply lemma1_step2_move_invariance
+    exact ih
 
 /-- Lemma 1 (Ref. Lemma 3.2): Corner twist sum is invariant under solvable moves.
     If a state `s` is solvable, its corner twist sum must be 0 (mod 3),
     since the initial state has sum 0. -/
-theorem lemma1_corner_twist_invariant (s : CubeState) (h_solv : IsSolvable s) :
-    checkCornerTwist s :=
-  sorry -- Proof would involve showing each basic move preserves the sum mod 3.
+theorem lemma1_corner_twist_invariant (s : CubeState) (hs : IsSolvable s) :
+    checkCornerTwist s := by
+  let ⟨moves, h⟩ := hs
+  simp only [h, moves_check_corner_twist, lemma1_step1_initial_state]
+
 
 -- Note: The following state the *consequences* of the isomorphism theorems
 -- from the paper (Theorems 4.1, 4.2, 4.3) needed for the main proof.
 
+theorem one_corner_center_sign_invariant :
+    Perm.sign (CubeState.corner_perm 1) * Perm.sign (CubeState.center_perm 1) = 1 := by
+  rfl
+
+theorem move_corner_center_sign_invariant (m : BasicMove) (s : CubeState) :
+    Perm.sign s.corner_perm * Perm.sign s.center_perm =
+    Perm.sign (apply_move m s).corner_perm * Perm.sign (apply_move m s).center_perm := by
+  cases m with
+  | R =>
+    dsimp [apply_move]
+    unfold r_move_corner_perm
+    unfold r_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | L =>
+    dsimp [apply_move]
+    unfold l_move_corner_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_inv]
+    unfold rotY2_corner_perm
+    unfold rotY_corner_perm
+    unfold r_move_corner_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    unfold l_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_inv]
+    unfold rotY2_center_perm
+    unfold rotY_center_perm
+    unfold r_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | U =>
+    dsimp [apply_move]
+    unfold u_move_corner_perm
+    unfold u_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | D =>
+    dsimp [apply_move]
+    unfold d_move_corner_perm
+    unfold d_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | F =>
+    dsimp [apply_move]
+    unfold f_move_corner_perm
+    unfold f_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | B =>
+    dsimp [apply_move]
+    unfold b_move_corner_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_inv]
+    unfold rotY2_corner_perm
+    unfold rotY_corner_perm
+    unfold f_move_corner_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap]
+    unfold b_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_inv]
+    unfold rotY2_center_perm
+    unfold rotY_center_perm
+    unfold f_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | CR =>
+    dsimp [apply_move]
+    unfold cr_move_corner_perm
+    unfold cr_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | CL =>
+    dsimp [apply_move]
+    unfold cl_move_corner_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_inv]
+    unfold rotY2_corner_perm
+    unfold rotY_corner_perm
+    unfold cr_move_corner_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    unfold cl_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_inv]
+    unfold rotY2_center_perm
+    unfold rotY_center_perm
+    unfold cr_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | CU =>
+    dsimp [apply_move]
+    unfold cu_move_corner_perm
+    unfold cu_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | CD =>
+    dsimp [apply_move]
+    unfold cd_move_corner_perm
+    unfold cd_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | CF =>
+    dsimp [apply_move]
+    unfold cf_move_corner_perm
+    unfold cf_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+  | CB =>
+    dsimp [apply_move]
+    unfold cb_move_corner_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_inv]
+    unfold rotY2_corner_perm
+    unfold rotY_corner_perm
+    unfold cf_move_corner_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    unfold cb_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_inv]
+    unfold rotY2_center_perm
+    unfold rotY_center_perm
+    unfold cf_move_center_perm
+    simp_rw [Perm.sign_mul]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
+    · simp
+    all_goals try decide
+
+theorem moves_corner_center_sign_invariant (moves : List BasicMove) (s : CubeState) :
+    Perm.sign s.corner_perm * Perm.sign s.center_perm =
+    Perm.sign (apply_move_list moves s).corner_perm *
+    Perm.sign (apply_move_list moves s).center_perm := by
+  induction moves using List.reverseRecOn with
+  | nil => rw [apply_move_list]; rfl
+  | append_singleton ms  ih =>
+    rw [apply_move_list, List.foldl_append]
+    simp_all only [forall_const, List.foldl_cons, List.foldl_nil]
+    apply move_corner_center_sign_invariant
+
 /-- Lemma 2 (Ref. Lemma 3.1): The product of corner and center permutation signs
     is invariant under solvable moves. -/
-theorem lemma2_sign_invariant (s : CubeState) (h_solv : IsSolvable s) :
-    permSign s.corner_perm * permSign s.center_perm = 1 :=
-  sorry
+theorem lemma2_sign_invariant (s : CubeState) (hs : IsSolvable s) :
+    Perm.sign s.corner_perm * Perm.sign s.center_perm = 1 := by
+  let ⟨moves, h⟩ := hs
+  rw [h, ← moves_corner_center_sign_invariant, one_corner_center_sign_invariant]
 
 /-- Consequence of Lemma 3 (C ≅ A₈): Any even permutation of corners can be achieved
     by a solvable state that doesn't permute other pieces or affect edge orientation. -/
 theorem lemma3_corner_perm_achievability (σ_target : Perm CornerSlot)
-    (h_even : permSign σ_target = 1) :
+    (h_even : Perm.sign σ_target = 1) :
     ∃ (s : CubeState), IsSolvable s ∧
                        s.corner_perm = σ_target ∧
                        s.edge_perm = 1 ∧
@@ -223,7 +450,7 @@ theorem lemma3_corner_perm_achievability (σ_target : Perm CornerSlot)
 /-- Consequence of Lemma 4 (Z ≅ A₂₄): Any even permutation of centers can be achieved
     by a solvable state that doesn't permute other pieces or affect edge orientation. -/
 theorem lemma4_center_perm_achievability (ρ_target : Perm CenterSlot)
-    (h_even : permSign ρ_target = 1) :
+    (h_even : Perm.sign ρ_target = 1) :
     ∃ (s : CubeState), IsSolvable s ∧
                        s.center_perm = ρ_target ∧
                        s.corner_perm = 1 ∧
