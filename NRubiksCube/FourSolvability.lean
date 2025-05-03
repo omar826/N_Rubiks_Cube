@@ -735,8 +735,6 @@ theorem lemma7_step2_move_invariance (m : BasicMove) (s : CubeState) :
   | CF => exact cf_move_check_edge_flip s
   | CB => exact cb_move_check_edge_flip s
 
-
-
 /-- Lemma 7: The edge flip condition `checkEdgeFlip` is invariant under solvable moves. -/
 theorem moves_preserves_checkEdgeFlip (moves : List BasicMove) (s : CubeState) :
     checkEdgeFlip s → checkEdgeFlip (apply_move_list moves s) := by
@@ -826,6 +824,23 @@ theorem solvability_iff_apply_move (m : BasicMove) (s : CubeState) :
     use (M ++ [m]) -- Propose new move list
     rw [apply_move_list_append, h_s_eq, apply_move_list_singleton]
 
+/-- Applying a sequence of moves to a solvable state results in a solvable state. -/
+theorem isSolvable_apply_move_list (M : List BasicMove) (s : CubeState) :
+    IsSolvable s → IsSolvable (apply_move_list M s) := by
+  intro h_s_solv              -- Assume `s` is solvable
+  obtain ⟨M_s, h_s_eq⟩ := h_s_solv -- Get the move list `M_s` such that `s = apply_move_list M_s 1`
+  use (M_s ++ M)              -- Propose the combined move list `M_s ++ M` for the new state
+  -- The goal is: `apply_move_list M s = apply_move_list (M_s ++ M) 1`
+
+  -- Rewrite the RHS using the append lemma to match the structure of the LHS
+  dsimp -- Add this before the rewrite
+  rw [apply_move_list_append]
+  -- The goal is now: `apply_move_list M s = apply_move_list M (apply_move_list M_s 1)`
+
+  -- Substitute `s` on the LHS using its definition `h_s_eq`
+  rw [h_s_eq]
+  -- The goal becomes: `apply_move_list M (apply_move_list M_s 1) = apply_move_list M (apply_move_list M_s 1)`
+  -- This is true by reflexivity, so the proof is complete.
 
 
 -- ## Main Solvability Theorem Statement
@@ -901,67 +916,234 @@ theorem solvability_iff (s : CubeState) :
         rw [h_s₁_def] -- Substitute s₁ with s
         exact h_rho_even -- The goal is now permSign s.center_perm = 1, which is h_rho_even
       · -- Case 2: permSign s.center_perm = 1 is false (so sign must be -1)
-        -- In this case, s₁ was defined as apply_move R s
         have h_s₁_def : s₁ = apply_move BasicMove.R s := if_neg h_rho_even
-        rw [h_s₁_def] -- Substitute s₁
-        simp only [apply_move, MoveImpl.apply_move] -- Unfold apply_move for R case
-        -- Goal: permSign (r_move_center_perm * s.center_perm) = 1
-        rw [Perm.sign_mul] -- sign(p*q) = sign(p)*sign(q)
-        have h_r_sign : Perm.sign r_move_center_perm = -1 := by
-             native_decide -- Or sorry
+        rw [h_s₁_def]
+        simp only [apply_move, MoveImpl.apply_move]
+        rw [Perm.sign_mul]
+        have h_r_sign : Perm.sign r_move_center_perm = -1 := by native_decide -- Or sorry
         rw [h_r_sign]
         -- Goal: -1 * permSign s.center_perm = 1
-        -- Prove that permSign s.center_perm must be -1
-        have h_s_sign : Perm.sign s.center_perm = -1 := by
-          -- Use the lemma stating sign is a unit (1 or -1)
-          -- Perm.sign_mem_units returns a proof that sign p ∈ ({1, -1} : Set (Multiplicative ℤ))
-          -- We can use this membership proof with the fact it's not 1
-          have h_mem := Perm.sign_mem_units s.center_perm
-          -- Unfold the definition of the set {1, -1}
-          simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at h_mem
-          -- h_mem is now: permSign s.center_perm = 1 ∨ permSign s.center_perm = -1
-          -- We know it's not 1 from h_rho_even
-          exact Or.resolve_left h_mem h_rho_even -- Conclude it must be -1
+        have h_s_sign : Perm.sign s.center_perm = (-1 : ℤˣ) := by -- Target type is ℤˣ
+          -- Let a be the sign, which has type ℤˣ
+          let a : ℤˣ := Perm.sign s.center_perm
+          -- Use the lemma stating that elements of ℤˣ are 1 or -1
+          have h_one_or_neg_one : a = (1 : ℤˣ) ∨ a = (-1 : ℤˣ) := Int.units_eq_one_or a
+          -- We know a ≠ 1 from h_rho_even (which is ¬ (a = 1))
+          exact Or.resolve_left h_one_or_neg_one h_rho_even
         rw [h_s_sign]
-        -- Goal: -1 * -1 = 1
-        simp -- Should solve this
+        -- Goal: -1 * -1 = 1 (in ℤˣ)
+        simp -- Should solve this using Units.neg_one_mul_neg_one or similar
         -- rfl -- Alternative
 
 
     have h_sign₁ : checkPermSigns s₁ := by
-      split_ifs with h_rho_even
-      · -- Case 1: s₁ = s
-        exact h_sign_s -- Use original assumption
-      · -- Case 2: s₁ = apply_move R s
-        simp only [s₁, checkPermSigns, apply_move] -- Unfold definitions
-        simp only -- Access components
+      -- Use by_cases to split on the condition used to define s₁
+      by_cases h_rho_even : (Perm.sign s.center_perm = 1)
+      · -- Case 1: permSign s.center_perm = 1 is true
+        -- In this case, s₁ was defined as s
+        have h_s₁_def : s₁ = s := if_pos h_rho_even
+        rw [h_s₁_def] -- Substitute s₁ with s in the goal
+        -- Goal is now checkPermSigns s
+        exact h_sign_s -- Use the original assumption h_sign_s
+      · -- Case 2: permSign s.center_perm = 1 is false
+        -- In this case, s₁ was defined as apply_move R s
+        have h_s₁_def : s₁ = apply_move BasicMove.R s := if_neg h_rho_even
+        rw [h_s₁_def] -- Substitute s₁ in the goal
+        -- Goal is now checkPermSigns (apply_move R s)
+        simp only [checkPermSigns, apply_move, MoveImpl.apply_move] -- Unfold definitions
         -- Goal: sign(r_p_c * s_p_c) = sign(r_p_z * s_p_z)
-        rw [Perm.sign_mul, Perm.sign_mul]
-        have h_r_c_sign : permSign r_move_corner_perm = -1 := by sorry -- Sign of 4-cycle
-        have h_r_z_sign : permSign r_move_center_perm = -1 := by sorry -- Sign of 4-cycle
+        rw [Perm.sign_mul, Perm.sign_mul] -- Apply sign multiplication rule
+        have h_r_c_sign : Perm.sign r_move_corner_perm = -1 := by native_decide -- Or sorry
+        have h_r_z_sign : Perm.sign r_move_center_perm = -1 := by native_decide -- Or sorry
         rw [h_r_c_sign, h_r_z_sign]
         -- Goal: -1 * sign(s_p_c) = -1 * sign(s_p_z)
-        -- We know sign(s_p_c) = sign(s_p_z) from h_sign_s
+        -- Use the original assumption h_sign_s (which is sign(s_p_c) = sign(s_p_z))
         rw [h_sign_s]
-
+        -- Goal is now -1 * sign = -1 * sign, which is true by reflexivity
+        -- rfl -- Often not needed after the last rw
     have h_twist₁ : checkCornerTwist s₁ := by
-      split_ifs with h_rho_even
-      · -- Case 1: s₁ = s
-        exact h_twist_s -- Use original assumption
-      · -- Case 2: s₁ = apply_move R s
-        simp only [s₁]
-        exact lemma1_step2_move_invariance BasicMove.R s h_twist_s -- Use Lemma 1 invariance
-
+      -- Use by_cases to split on the condition used to define s₁
+      by_cases h_rho_even : (Perm.sign s.center_perm = 1)
+      · -- Case 1: permSign s.center_perm = 1 is true
+        -- In this case, s₁ was defined as s
+        have h_s₁_def : s₁ = s := if_pos h_rho_even
+        rw [h_s₁_def] -- Substitute s₁ with s in the goal
+        -- Goal is now checkCornerTwist s
+        exact h_twist_s -- Use the original assumption h_twist_s
+      · -- Case 2: permSign s.center_perm = 1 is false
+        -- In this case, s₁ was defined as apply_move R s
+        have h_s₁_def : s₁ = apply_move BasicMove.R s := if_neg h_rho_even
+        rw [h_s₁_def] -- Substitute s₁ in the goal
+        -- Goal is now checkCornerTwist (apply_move R s)
+        -- Use the invariance lemma for the R move
+        exact lemma1_step2_move_invariance BasicMove.R s h_twist_s
     have h_edge₁ : checkEdgeFlip s₁ := by
-      split_ifs with h_rho_even
-      · -- Case 1: s₁ = s
-        exact h_edge_s -- Use original assumption
-      · -- Case 2: s₁ = apply_move R s
-        simp only [s₁]
-        exact lemma7_step2_move_invariance BasicMove.R s h_edge_s -- Use Lemma 7 invariance
-
+      -- Use by_cases to split on the condition used to define s₁
+      by_cases h_rho_even : (Perm.sign s.center_perm = 1)
+      · -- Case 1: permSign s.center_perm = 1 is true
+        -- In this case, s₁ was defined as s
+        have h_s₁_def : s₁ = s := if_pos h_rho_even
+        rw [h_s₁_def] -- Substitute s₁ with s in the goal
+        -- Goal is now checkEdgeFlip s
+        exact h_edge_s -- Use the original assumption h_edge_s
+      · -- Case 2: permSign s.center_perm = 1 is false
+        -- In this case, s₁ was defined as apply_move R s
+        have h_s₁_def : s₁ = apply_move BasicMove.R s := if_neg h_rho_even
+        rw [h_s₁_def] -- Substitute s₁ in the goal
+        -- Goal is now checkEdgeFlip (apply_move R s)
+        -- Use the invariance lemma for the R move (Lemma 7)
+        exact lemma7_step2_move_invariance BasicMove.R s h_edge_s
     -- Now continue with Step 2 using s₁, h_center_perm_even₁, h_sign₁, h_twist₁, h_edge₁
     -- ... rest of the proof ...
-    sorry
+        -- Step 2: Find solvable state z₁ to cancel center permutation
+    -- Since s₁.center_perm is even, its inverse is also even
 
-end FourRubik
+    -- Step 2: Find solvable state z₁ to cancel center permutation
+    have h_center_perm_inv_even : Equiv.Perm.sign s₁.center_perm⁻¹ = 1 := by
+      rw [Perm.sign_inv]; exact h_center_perm_even₁
+    -- Apply Lemma 4
+    obtain ⟨z₁, h_z₁_solv, h_z₁_zperm_eq, h_z₁_cperm_id, h_z₁_eperm_id, h_z₁_eori_zero⟩ :=
+      lemma4_center_perm_achievability (s₁.center_perm⁻¹) h_center_perm_inv_even
+    -- Extract the move list M_z1 from the solvability proof for z₁
+    obtain ⟨M_z1, h_z1_moves⟩ := h_z₁_solv
+
+    -- Apply the moves M_z1 to s₁
+    let s₂ := apply_move_list M_z1 s₁
+
+    -- Prove properties about the resulting state s₂
+    have h_center_perm₂ : s₂.center_perm = 1 := by
+      -- Need lemma: (apply_move_list M z₁).center_perm = (apply_move_list M z₁ initialState).center_perm * s₁.center_perm
+      -- which is z₁.center_perm * s₁.center_perm
+      sorry -- Apply composition lemma, h_z₁_zperm_eq, mul_inv_self
+    have h_corner_perm₂ : s₂.corner_perm = s₁.corner_perm := sorry -- Since z₁ only affects centers
+    have h_edge_perm₂ : s₂.edge_perm = s₁.edge_perm := sorry -- Since z₁ only affects centers
+    have h_twist₂ : checkCornerTwist s₂ := sorry -- Since z₁ doesn't affect corner ori
+    have h_edge₂ : checkEdgeFlip s₂ := sorry -- Since z₁ doesn't affect edges
+
+    -- Now continue with Step 3 using s₂, h_center_perm₂, etc.
+    -- Step 3: Fix corner permutation σ
+    -- Need to show s₂ corner perm is even
+    have h_corner_perm_even₂ : Perm.sign s₂.corner_perm = 1 := sorry -- From h_sign₁ and h_center_perm₂ = 1
+    -- Since s₂.corner_perm is even, its inverse is also even
+    have h_corner_perm_inv_even₂ : Perm.sign s₂.corner_perm⁻¹ = 1 := by -- Added this step
+      rw [Perm.sign_inv]
+      exact h_corner_perm_even₂
+    -- Apply Lemma 3 using the correct hypothesis
+    obtain ⟨c₁, h_c₁_solv, h_c₁_cperm_eq, h_c₁_eperm_id, h_c₁_zperm_id, h_c₁_eori_zero⟩ :=
+      lemma3_corner_perm_achievability (s₂.corner_perm⁻¹) h_corner_perm_inv_even₂ -- Use the sign of the inverse
+    -- Extract the move list M_c1
+    obtain ⟨M_c1, h_c1_moves⟩ := h_c₁_solv
+
+    -- Apply the moves M_c1 to s₂
+    let s₃ := apply_move_list M_c1 s₂
+    -- Need proofs about state s₃
+    have h_corner_perm₃ : s₃.corner_perm = 1 := sorry
+    have h_center_perm₃ : s₃.center_perm = 1 := sorry
+    have h_edge_perm₃ : s₃.edge_perm = s₂.edge_perm := sorry
+    have h_twist₃ : checkCornerTwist s₃ := sorry
+    have h_edge₃ : checkEdgeFlip s₃ := sorry
+
+    -- Step 4: Fix edge permutation τ
+    -- ... rest of the proof ...
+    -- Apply Lemma 5 to find moves e₁ that achieve s₃.edge_perm⁻¹
+    obtain ⟨e₁, h_e₁_solv, h_e₁_eperm_eq, h_e₁_cperm_id, h_e₁_zperm_id⟩ :=
+      lemma5_edge_perm_achievability (s₃.edge_perm⁻¹)
+    -- Extract the move list M_e1
+    obtain ⟨M_e1, h_e1_moves⟩ := h_e₁_solv
+
+    -- Apply the moves M_e1 to s₃
+    let s₄ := apply_move_list M_e1 s₃
+
+    -- Prove properties about state s₄
+    have h_perm₄ : s₄.corner_perm = 1 ∧ s₄.edge_perm = 1 ∧ s₄.center_perm = 1 := by
+      constructor
+      · -- Prove s₄.corner_perm = 1
+        -- Requires lemma: (apply_move_list M s).corner_perm = (apply_move_list M initialState).corner_perm * s.corner_perm
+        sorry -- Apply composition lemma, h_e₁_cperm_id, h_corner_perm₃, one_mul
+      · constructor
+        · -- Prove s₄.edge_perm = 1
+          -- Requires lemma: (apply_move_list M s).edge_perm = (apply_move_list M initialState).edge_perm * s.edge_perm
+          sorry -- Apply composition lemma, h_e₁_eperm_eq, h_edge_perm₃ (relative to s₂?), mul_inv_self
+        · -- Prove s₄.center_perm = 1
+          -- Requires lemma: (apply_move_list M s).center_perm = (apply_move_list M initialState).center_perm * s.center_perm
+          sorry -- Apply composition lemma, h_e₁_zperm_id, h_center_perm₃, one_mul
+
+    -- Now continue with Step 5 using s₄ and h_perm₄
+    -- ... rest of the proof ...
+    -- Step 5: Check orientations of s₄
+    have h_twist₄ : checkCornerTwist s₄ := by
+      -- Argument: s -> s₁ preserves twist (by lemma1_step2_move_invariance R s h_twist_s if R was used, else trivial)
+      -- s₁ -> s₂ preserves twist (because z₁ is solvable, use lemma1_corner_twist_invariant)
+      -- s₂ -> s₃ preserves twist (because c₁ is solvable, use lemma1_corner_twist_invariant)
+      -- s₃ -> s₄ preserves twist (because e₁ is solvable, use lemma1_corner_twist_invariant)
+      -- This requires proving how IsSolvable composes and relates state transformations.
+      sorry -- Placeholder for detailed proof showing preservation through z₁, c₁, e₁ moves
+
+    -- First, show checkEdgeFlip holds for s₄
+    have h_edge₄_holds : checkEdgeFlip s₄ := by
+      -- Argument: s -> s₁ preserves edge flip (by lemma7_step2_move_invariance R s h_edge_s if R was used, else trivial)
+      -- s₁ -> s₂ preserves edge flip (because z₁ has edge_perm=1, edge_ori=0)
+      -- s₂ -> s₃ preserves edge flip (because c₁ has edge_perm=1, edge_ori=0)
+      -- s₃ -> s₄ preserves edge flip (because e₁ has corner/center_perm=1, need lemma on its edge effect)
+      -- This requires detailed proofs or lemmas about preservation for z₁, c₁, e₁.
+      sorry -- Placeholder for detailed proof showing preservation through z₁, c₁, e₁ moves
+
+    -- Now, deduce edge_ori = 0 from checkEdgeFlip s₄ and s₄.edge_perm = 1
+    have h_edge₄_zero : s₄.edge_ori = fun _ => 0 := by
+      -- Use function extensionality: show s₄.edge_ori i = 0 for all i
+      funext i
+      -- Apply the definition of checkEdgeFlip s₄
+      have h_flip_i := h_edge₄_holds i
+      -- Substitute s₄.edge_perm = 1 into the definition of getPieceTypeInSlot
+      simp only [getPieceTypeInSlot, h_perm₄.2.1, inv_one, Perm.one_apply] at h_flip_i
+      -- h_flip_i is now: s₄.edge_ori i = 1 - edgeDelta (getSlotType i) (getSlotType i)
+
+      -- Unfold edgeDelta
+      rw [edgeDelta] at h_flip_i
+      -- h_flip_i is now: s₄.edge_ori i = 1 - if getSlotType i = getSlotType i then 1 else 0
+
+      -- Simplify the condition using eq_self with simp
+      simp only [eq_self] at h_flip_i -- Use simp instead of rw
+      -- h_flip_i should now be: s₄.edge_ori i = 1 - if True then 1 else 0
+
+      -- Simplify the if statement
+      rw [if_true] at h_flip_i
+      -- h_flip_i is now: s₄.edge_ori i = 1 - 1
+
+      -- Simplify the subtraction
+      rw [sub_self] at h_flip_i
+      -- h_flip_i is now: s₄.edge_ori i = 0
+
+      -- Use this hypothesis to prove the goal
+      exact h_flip_i
+
+    -- Step 6 concluded:
+    have h_s₄_solvable_final : IsSolvable s₄ := lemma6_corner_twist_solvability s₄ h_perm₄ h_edge₄_zero h_twist₄
+
+    -- Step 7: Combine solvability
+    -- We know s₄ is solvable. Let M_s4 be the moves to reach s₄ from initialState.
+    obtain ⟨M_s4, h_s4_eq_moves⟩ := h_s₄_solvable_final
+
+    -- Define the sequence M_fix_total transforming s to s₄
+    let M_fix_intermediate := M_z1 ++ M_c1 ++ M_e1
+    let M_fix_total := if h_center_even : Perm.sign s.center_perm = 1 then M_fix_intermediate else [BasicMove.R] ++ M_fix_intermediate
+    have h_s4_from_s : s₄ = apply_move_list M_fix_total s := sorry -- Proof needed
+
+    -- We need to show ∃ M', s = apply_move_list M' initialState
+    -- We will show s = apply_move_list (M_s4 ++ inv_move_list M_fix_total) initialState
+    use (M_s4 ++ inv_move_list M_fix_total)
+
+    -- Start from cancellation lemma applied to s₄ and M_fix_total
+    have h_cancel_s4 : s = apply_move_list (inv_move_list M_fix_total) s₄ := by
+       sorry -- Need proof for apply_move_list_inv_move_cancel_list
+
+    -- Substitute s₄ using h_s4_eq_moves
+    rw [h_s4_eq_moves] at h_cancel_s4
+    -- h_cancel_s4 is now: s = apply_move_list (inv_move_list M_fix_total) (apply_move_list M_s4 initialState)
+
+    -- Apply append lemma (backwards)
+    rw [← apply_move_list_append] at h_cancel_s4
+    -- h_cancel_s4 is now: s = apply_move_list (M_s4 ++ inv_move_list M_fix_total) initialState
+
+    -- This matches the goal derived from the 'use' statement
+    exact h_cancel_s4
