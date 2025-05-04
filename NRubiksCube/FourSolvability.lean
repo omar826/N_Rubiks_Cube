@@ -392,6 +392,7 @@ lemma solvability_iff_apply_move_list (M : List BasicMove) (s : CubeState) :
   · -- Direction <=: IsSolvable s → IsSolvable (apply_move_list M s)
     exact isSolvable_apply_move_list M s -- Already proved this helper
 
+
 lemma apply_move_list_corner_perm_comp (M : List BasicMove) (s : CubeState) :
   (apply_move_list M s).corner_perm = (apply_move_list M 1).corner_perm * s.corner_perm := by
   have h : CubeState.corner_perm 1 = 1 := by decide
@@ -437,6 +438,7 @@ lemma apply_move_list_edge_perm_comp (M : List BasicMove) (s : CubeState) :
       <;> rfl
     rw [h_step, mul_assoc]
 -- ## Main Solvability Theorem Statement
+
 
 theorem solvability_iff (s : CubeState) :
     IsSolvable s ↔ checkPermSigns s ∧ checkCornerTwist s ∧ checkEdgeFlip s := by

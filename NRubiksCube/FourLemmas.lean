@@ -603,48 +603,6 @@ theorem lemma5_edge_perm_achievability (τ_target : Perm EdgeSlot) :
 def M : List BasicMove :=
   r' ++ d ++ r ++ f ++ d ++ f' ++ u' ++ f ++ d' ++ f' ++ r' ++ d' ++ r ++ u
 
-theorem pure_double_twist_effect :
-    ∃ (s_M : CubeState), s_M = apply_move_list M 1 ∧
-                          IsSolvable s_M ∧
-                          s_M.corner_perm = 1 ∧
-                          s_M.edge_perm = 1 ∧
-                          s_M.center_perm = 1 ∧
-                          s_M.edge_ori = (fun _ => 0) ∧
-                          s_M.corner_ori Indexing.c_ufl = 1 ∧ -- +1 twist on UFL (slot 0)
-                          s_M.corner_ori Indexing.c_urf = 2 ∧ -- -1 (+2) twist on URF (slot 1)
-                          (∀ c, c ≠ Indexing.c_ufl ∧ c ≠ Indexing.c_urf → s_M.corner_ori c = 0) := by
-                          sorry
-
-theorem corner_twist_conjugation_works (i j : CornerSlot) (h_ne : i ≠ j) :
-    ∃ (s_ij : CubeState) (M_ij : List BasicMove),
-        s_ij = apply_move_list M_ij 1 ∧
-        IsSolvable s_ij ∧
-        s_ij.corner_perm = 1 ∧
-        s_ij.edge_perm = 1 ∧
-        s_ij.center_perm = 1 ∧
-        s_ij.edge_ori = (fun _ => 0) ∧ -- Crucial, strong assumption
-        s_ij.corner_ori i = 1 ∧
-        s_ij.corner_ori j = 2 ∧
-        (∀ c, c ≠ i ∧ c ≠ j → s_ij.corner_ori c = 0) := by
-  sorry -- Relies on group theory (conjugation) and assumes edge_ori preservation
-
-
-@[simp]
-def count_nonzero_corner_ori (s : CubeState) : Nat :=
-  (List.finRange 8).countP (fun i => s.corner_ori i ≠ 0)
-
-lemma count_zero_iff_ori_zero (s : CubeState) :
-    count_nonzero_corner_ori s = 0 ↔ s.corner_ori = (fun _ => 0) := by
-  aesop
-
-
--- Lemma: Additive composition for corner_ori when perms are 1
-lemma apply_move_list_corner_ori_comp (M : List BasicMove) (s : CubeState) :
-    ∀ i, (apply_move_list M s).corner_ori i =
-    s.corner_ori ((apply_move_list M 1).corner_perm⁻¹ i) + (apply_move_list M 1).corner_ori i := by
-  sorry -- Assume you have the proof for this
-
-
 /-- Lemma 6 (Implied by paper): A state with identity permutations and zero edge
     orientation, satisfying the corner twist condition, is solvable. -/
 theorem lemma6_corner_twist_solvability (s : CubeState)
@@ -653,4 +611,5 @@ theorem lemma6_corner_twist_solvability (s : CubeState)
     (h_twist : checkCornerTwist s) :
     IsSolvable s := by
   sorry
+
 end FourRubik
