@@ -534,7 +534,7 @@ theorem lemma6_corner_twist_solvability (s : CubeState)
     (h_perm : s.corner_perm = 1 ∧ s.edge_perm = 1 ∧ s.center_perm = 1)
     (h_edge_ori : s.edge_ori = fun _ => 0)
     (h_twist : checkCornerTwist s) :
-    IsSolvable s :=
+    IsSolvable s := by
   sorry -- Proof relies on existence of pure corner twist algorithms.
 
 /-!
@@ -740,14 +740,6 @@ theorem lemma7_edge_flip_invariant (s : CubeState) (hs : IsSolvable s) :
   rw [hm]
   exact moves_preserves_checkEdgeFlip moves 1 lemma7_step1_initial_state
 
-
-lemma apply_move_list_inv_move_cancel (m : BasicMove) (s : CubeState) :
-    apply_move_list (inv_move m) (apply_move m s) = s := by
-  simp only [inv_move, apply_move_list, List.foldl_cons, List.foldl_nil]
-  -- Goal: apply_move m (apply_move m (apply_move m (apply_move m s))) = s
-  -- This requires proving that (apply_move m)^4 = id
-  sorry -- Placeholder for proof that apply_move^4 = id
-
 -- Lemma: apply_move_list distributes over concatenation (from right)
 lemma apply_move_list_append (L1 L2 : List BasicMove) (s : CubeState) :
     apply_move_list (L1 ++ L2) s = apply_move_list L2 (apply_move_list L1 s) := by
@@ -770,6 +762,56 @@ lemma apply_move_list_append (L1 L2 : List BasicMove) (s : CubeState) :
     -- apply_move_list (ms ++ L2) (apply_move m s) = apply_move_list L2 (apply_move_list ms (apply_move m s))
     -- This matches the inductive hypothesis applied to the state (apply_move m s)
     exact ih (apply_move m s)
+
+lemma apply_move_list_inv_move_cancel (m : BasicMove) (s : CubeState) :
+    apply_move_list (inv_move m) (apply_move m s) = s := by
+  simp only [inv_move, apply_move_list, List.foldl_cons, List.foldl_nil]
+  -- Goal: apply_move m (apply_move m (apply_move m (apply_move m s))) = s
+  -- This requires proving that (apply_move m)^4 = id
+  sorry -- Placeholder for proof that apply_move^4 = id
+
+lemma apply_move_list_inv_move_list_cancel (M : List BasicMove) (s : CubeState) :
+    apply_move_list (inv_move_list M) (apply_move_list M s) = s := by
+  induction M generalizing s with
+  | nil =>
+    simp only [inv_move_list, List.reverse_nil, List.map_nil, List.flatten_nil, apply_move_list, List.foldl_nil]
+  | cons m ms ih =>
+    -- ih : ∀ (s' : CubeState), apply_move_list (inv_move_list ms) (apply_move_list ms s') = s'
+
+    -- Goal: apply_move_list (inv_move_list (m :: ms)) (apply_move_list (m :: ms) s) = s
+    have h_inv_list_cons : inv_move_list (m :: ms) = inv_move_list ms ++ inv_move m := by
+      simp [inv_move_list, List.reverse_cons, List.map_append, List.flatten_append]
+    rw [h_inv_list_cons]
+    -- Goal: apply_move_list (inv_move_list ms ++ inv_move m) (apply_move_list (m :: ms) s) = s
+
+    -- Unfold the target state definition
+    simp only [apply_move_list, List.foldl_cons]
+    -- Goal: apply_move_list (inv_move_list ms ++ inv_move m) (apply_move_list ms (apply_move m s)) = s
+
+    -- Apply append lemma (make sure it's defined *before* this lemma)
+    -- Using: apply_move_list (L1 ++ L2) s' = apply_move_list L2 (apply_move_list L1 s')
+    -- Let L1 = inv_move_list ms, L2 = inv_move m, s' = apply_move_list ms (apply_move m s)
+    rw [List.foldl_append]
+    -- Goal: apply_move_list (inv_move m) (apply_move_list (inv_move_list ms) (apply_move_list ms (apply_move m s))) = s
+
+    -- *** Here is the change ***
+    -- Define the intermediate state explicitly
+    let s' := apply_move m s
+    -- Specialize the inductive hypothesis to this state s'
+    specialize ih s'
+    -- Now ih : apply_move_list (inv_move_list ms) (apply_move_list ms s') = s'
+    simp only [apply_move_list] at ih
+    -- Rewrite the inner part using the specialized hypothesis 'ih'
+    -- The term `apply_move_list (inv_move_list ms) (apply_move_list ms (apply_move m s))`
+    -- is `apply_move_list (inv_move_list ms) (apply_move_list ms s')` which is the LHS of ih.
+    rw [ih] -- Use the specialized equality ih
+    -- Goal: apply_move_list (inv_move m) s' = s
+    -- If the goal doesn't immediately simplify, substitute s' back
+    -- change apply_move_list (inv_move m) (apply_move m s) = s -- This might not be needed
+
+    -- The goal is now exactly the single-move cancellation lemma
+    exact apply_move_list_inv_move_cancel m s
+
 
 theorem isSolvable_of_apply_move_solvable (m : BasicMove) (s : CubeState) :
     IsSolvable (apply_move m s) → IsSolvable s := by
@@ -828,7 +870,67 @@ theorem isSolvable_apply_move_list (M : List BasicMove) (s : CubeState) :
   -- The goal becomes: `apply_move_list M (apply_move_list M_s 1) = apply_move_list M (apply_move_list M_s 1)`
   -- This is true by reflexivity, so the proof is complete.
 
+lemma apply_move_list_center_perm_comp (M : List BasicMove) (s : CubeState) :
+  (apply_move_list M s).center_perm = (apply_move_list M 1).center_perm * s.center_perm := by
+  induction M generalizing s with
+  | nil =>
+    simp [apply_move_list, CubeState.center_perm, initialState, One.one, mul_one]
+    decide
+  | cons m ms ih =>
+    simp only [apply_move_list, List.foldl_cons] at * -- Unfold apply_move_list using foldl everywhere
+    rw [ih (apply_move m s)] -- Apply IH to the state after move m
+    rw [ih (apply_move m 1)] -- Apply IH to the state after move m starting from 1
+    -- Need to show (apply_move m s).center_perm = (apply_move m 1).center_perm * s.center_perm
+    have h_step : (apply_move m s).center_perm = (apply_move m 1).center_perm * s.center_perm := by
+      -- Proof relies on apply_move definition: new_perm = move_perm * old_perm
+      -- and initialState.center_perm = 1
+      cases m <;> simp [apply_move, CubeState.center_perm, initialState, One.one, mul_one]<;> decide
+    rw [h_step, mul_assoc] -- Apply the single-step property and associativity
 
+lemma apply_move_list_corner_perm_comp (M : List BasicMove) (s : CubeState) :
+  (apply_move_list M s).corner_perm = (apply_move_list M 1).corner_perm * s.corner_perm := by
+  have h : CubeState.corner_perm 1 = 1 := by decide
+  induction M generalizing s with
+  | nil =>
+    simp only [apply_move_list, List.foldl_nil, CubeState.corner_perm, initialState, One.one, mul_one]
+     -- This is trivial, but needed for the proof
+    rw [h]
+    rfl -- This should be true by reflexivity
+  | cons m ms ih =>
+    simp only [apply_move_list, List.foldl_cons] at * -- Unfold definitions everywhere
+    rw [ih (apply_move m s)] -- Apply IH to state after move m
+    rw [ih (apply_move m 1)] -- Apply IH to state after move m from initial
+    -- Need: (apply_move m s).corner_perm = (apply_move m 1).corner_perm * s.corner_perm
+    have h_step : (apply_move m s).corner_perm = (apply_move m 1).corner_perm * s.corner_perm := by
+      -- Relies on apply_move definition: new_perm = move_perm * old_perm
+      cases m <;> simp only [apply_move, CubeState.corner_perm, initialState, One.one, mul_one, mul_assoc] -- Use simp (or decide)
+      <;> rw [h] -- This is needed for the initial state
+      <;> rfl
+      -- Or potentially: cases m <;> decide
+    rw [h_step, mul_assoc]
+
+
+-- Specific composition lemma for edge permutations
+lemma apply_move_list_edge_perm_comp (M : List BasicMove) (s : CubeState) :
+  (apply_move_list M s).edge_perm = (apply_move_list M 1).edge_perm * s.edge_perm := by
+  have h : CubeState.edge_perm 1 = 1 := by decide
+  induction M generalizing s with
+  | nil =>
+    simp only [apply_move_list, List.foldl_nil, CubeState.edge_perm, initialState, One.one, mul_one]
+    rw [h]; rfl
+ -- This is trivial, but needed for the proof
+  | cons m ms ih =>
+    simp only [apply_move_list, List.foldl_cons] at * -- Unfold definitions everywhere
+    rw [ih (apply_move m s)] -- Apply IH to state after move m
+    rw [ih (apply_move m 1)] -- Apply IH to state after move m from initial
+    -- Need: (apply_move m s).edge_perm = (apply_move m 1).edge_perm * s.edge_perm
+    have h_step : (apply_move m s).edge_perm = (apply_move m 1).edge_perm * s.edge_perm := by
+      -- Relies on apply_move definition: new_perm = move_perm * old_perm
+      cases m <;> simp only [apply_move, CubeState.edge_perm, initialState, One.one, mul_one, mul_assoc] -- Use simp (or decide)
+      -- Or potentially: cases m <;> decide
+      <;> rw [h] -- This is needed for the initial state
+      <;> rfl
+    rw [h_step, mul_assoc]
 -- ## Main Solvability Theorem Statement
 
 theorem solvability_iff (s : CubeState) :
@@ -995,13 +1097,68 @@ theorem solvability_iff (s : CubeState) :
 
     -- Prove properties about the resulting state s₂
     have h_center_perm₂ : s₂.center_perm = 1 := by
-      -- Need lemma: (apply_move_list M z₁).center_perm = (apply_move_list M z₁ initialState).center_perm * s₁.center_perm
-      -- which is z₁.center_perm * s₁.center_perm
-      sorry -- Apply composition lemma, h_z₁_zperm_eq, mul_inv_self
-    have h_corner_perm₂ : s₂.corner_perm = s₁.corner_perm := sorry -- Since z₁ only affects centers
-    have h_edge_perm₂ : s₂.edge_perm = s₁.edge_perm := sorry -- Since z₁ only affects centers
-    have h_twist₂ : checkCornerTwist s₂ := sorry -- Since z₁ doesn't affect corner ori
-    have h_edge₂ : checkEdgeFlip s₂ := sorry -- Since z₁ doesn't affect edges
+      -- State goal explicitly in terms of definitions
+      change (apply_move_list M_z1 s₁).center_perm = 1
+      -- Apply the composition lemma proven above
+      rw [apply_move_list_center_perm_comp M_z1 s₁]
+      -- Goal: (apply_move_list M_z1 1).center_perm * s₁.center_perm = 1
+      -- Substitute z₁ for (apply_move_list M_z1 1) using the hypothesis from IsSolvable z₁
+      rw [← h_z1_moves]
+      -- Goal: z₁.center_perm * s₁.center_perm = 1
+      -- Substitute the property of z₁ (it achieves the inverse permutation)
+      rw [h_z₁_zperm_eq]
+      -- Goal: s₁.center_perm⁻¹ * s₁.center_perm = 1
+      -- Use the group theory lemma
+      aesop
+
+    have h_corner_perm₂ : s₂.corner_perm = s₁.corner_perm := by
+      -- State goal explicitly using definition of s₂
+      change (apply_move_list M_z1 s₁).corner_perm = s₁.corner_perm
+      -- Apply the composition lemma for corners (requires Step 1)
+      rw [apply_move_list_corner_perm_comp M_z1 s₁]
+      -- Goal: (apply_move_list M_z1 1).corner_perm * s₁.corner_perm = s₁.corner_perm
+      -- Substitute z₁ using h_z1_moves
+      rw [← h_z1_moves]
+      -- Goal: z₁.corner_perm * s₁.corner_perm = s₁.corner_perm
+      -- Substitute the property of z₁ (corner_perm = 1)
+      rw [h_z₁_cperm_id]
+      -- Goal: 1 * s₁.corner_perm = s₁.corner_perm
+      -- Use the group identity property
+      simp only [one_mul]-- Since z₁ only affects centers
+
+    have h_edge_perm₂ : s₂.edge_perm = s₁.edge_perm := by
+      -- State goal explicitly using definition of s₂
+      change (apply_move_list M_z1 s₁).edge_perm = s₁.edge_perm
+      -- Apply the composition lemma for edges (requires Step 1)
+      rw [apply_move_list_edge_perm_comp M_z1 s₁]
+      -- Goal: (apply_move_list M_z1 1).edge_perm * s₁.edge_perm = s₁.edge_perm
+      -- Substitute z₁ using h_z1_moves
+      rw [← h_z1_moves]
+      -- Goal: z₁.edge_perm * s₁.edge_perm = s₁.edge_perm
+      -- Substitute the property of z₁ (edge_perm = 1)
+      rw [h_z₁_eperm_id]
+      -- Goal: 1 * s₁.edge_perm = s₁.edge_perm
+      -- Use the group identity property
+      simp only [one_mul] -- Since z₁ only affects centers
+    have h_twist₂ : checkCornerTwist s₂ := by
+      -- Expand the definition of s₂
+      change checkCornerTwist (apply_move_list M_z1 s₁)
+      -- Apply the lemma stating that move sequences preserve checkCornerTwist
+      -- `moves_check_corner_twist M_z1 s₁` has type `checkCornerTwist s₁ → checkCornerTwist (apply_move_list M_z1 s₁)`
+      apply moves_check_corner_twist M_z1 s₁
+      -- The goal now is the premise of the lemma: `checkCornerTwist s₁`
+      -- Use the fact that we already established checkCornerTwist holds for s₁
+      exact h_twist₁ -- Since z₁ doesn't affect corner ori
+    have h_edge₂ : checkEdgeFlip s₂ := by
+      -- Goal: checkEdgeFlip s₂
+      -- Unfold definition of s₂
+      change checkEdgeFlip (apply_move_list M_z1 s₁)
+      -- Apply the lemma that states applying moves preserves the edge flip property
+      -- This assumes `moves_preserves_checkEdgeFlip` has been proven.
+      apply moves_preserves_checkEdgeFlip M_z1 s₁
+      -- The goal is now the required input condition for the lemma: `checkEdgeFlip s₁`
+      -- Use the hypothesis h_edge₁ which was proven earlier in this proof direction
+      exact h_edge₁-- Since z₁ doesn't affect edges
 
     -- Now continue with Step 3 using s₂, h_center_perm₂, etc.
     -- Step 3: Fix corner permutation σ
@@ -1118,8 +1275,15 @@ theorem solvability_iff (s : CubeState) :
 
     -- Start from cancellation lemma applied to s₄ and M_fix_total
     have h_cancel_s4 : s = apply_move_list (inv_move_list M_fix_total) s₄ := by
-       sorry -- Need proof for apply_move_list_inv_move_cancel_list
-
+      -- Need h_s4_from_s : s₄ = apply_move_list M_fix_total s (defined earlier in proof)
+      -- Apply the list cancellation lemma to state s
+      have h_list_cancel := apply_move_list_inv_move_list_cancel M_fix_total s
+      -- h_list_cancel : apply_move_list (inv_move_list M_fix_total) (apply_move_list M_fix_total s) = s
+      -- Substitute s₄ using h_s4_from_s in h_list_cancel
+      rw [← h_s4_from_s] at h_list_cancel
+      -- h_list_cancel : apply_move_list (inv_move_list M_fix_total) s₄ = s
+      -- Now use symmetry to match the goal
+      exact Eq.symm h_list_cancel
     -- Substitute s₄ using h_s4_eq_moves
     rw [h_s4_eq_moves] at h_cancel_s4
     -- h_cancel_s4 is now: s = apply_move_list (inv_move_list M_fix_total) (apply_move_list M_s4 initialState)
@@ -1130,3 +1294,5 @@ theorem solvability_iff (s : CubeState) :
 
     -- This matches the goal derived from the 'use' statement
     exact h_cancel_s4
+
+end FourRubik
