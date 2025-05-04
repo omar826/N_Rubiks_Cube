@@ -6,24 +6,10 @@ import Mathlib.GroupTheory.SpecificGroups.Alternating -- For AlternatingGroup de
 --import Mathlib.GroupTheory.SpecificGroups.Symmetric -- For SymmetricGroup definition Sₙ
 import Mathlib.Data.List.Induction
 import NRubiksCube.FourRubik -- Assuming your main file is named FourRubik.lean
+import NRubiksCube.FourLemmas -- Assuming your main file is named FourMoveImpl.lean
 
 set_option maxRecDepth 10000
 set_option maxHeartbeats 10000000
-
-/-!
-# Solvability Conditions for the 4x4x4 Rubik's Revenge
-
-This file defines the conditions for a 4x4x4 cube state to be solvable,
-based on Theorem 3.1 from "The First Law of Cubology for the Rubik's Revenge"
-(arXiv:1611.07437v1 [math.CO]).
-
-We aim to state the theorem:
-A configuration `s : CubeState` is solvable if and only if:
-1. `sgn(σ) = sgn(ρ)` (Corner and Center permutation signs match)
-2. `∑ xᵢ ≡ 0 (mod 3)` (Corner orientation sum is 0)
-3. `yᵢ = 1 - δ_{t,s}` (Edge orientation condition based on slot type 't' and piece type 's')
-
--/
 
 namespace FourRubik -- Continue in the same namespace
 
@@ -1173,6 +1159,7 @@ lemma solvability_iff_apply_move_list (M : List BasicMove) (s : CubeState) :
 
 
 -- ## Main Solvability Theorem Statement
+
 
 theorem solvability_iff (s : CubeState) :
     IsSolvable s ↔ checkPermSigns s ∧ checkCornerTwist s ∧ checkEdgeFlip s := by
