@@ -372,7 +372,7 @@ theorem IsAdjacent.rotate (h : IsAdjacent a b) (r : Orientation) :
 /-- A predicate for three pairwise adjacent orientations, oriented as the standard basis.
 
 The orientation condition is required, since it's not physically possible to exchange two pieces in
-a corner without dissassembling it. -/
+a corner without dissassembling it.-/
 @[pp_nodot]
 def IsAdjacent₃ (a b c : Orientation) : Prop :=
   IsAdjacent a b ∧ c = cross a b
