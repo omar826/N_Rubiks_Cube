@@ -4,6 +4,16 @@ import Mathlib.GroupTheory.Perm.Sign
 import Mathlib.Data.Fintype.Units
 import NRubiksCube.Piece
 
+/-!
+Defines the type of "Illegal n×n×n Rubik's cubes". Thes are all possible n×n×n Rubik's cubes that
+can be assembled by using the pieces. In particular, there is no regard for solvability, and
+"impossible" positions like a rotated corner or flipped edge are allowed.
+
+We define a group structure in `BigIllegalRubik`, and define the "Rubik's cube invariant", a
+surjective group homomorphism into `TODO` whose kernel will be shown to consist of
+precisely the solvable Rubik's cubes.
+-/
+
 /-- The map `1 → 0`, `-1 → 1`. -/
 def Units.toZMod (x : ℤˣ) : ZMod 2 :=
   if x = 1 then 0 else 1
@@ -367,23 +377,6 @@ theorem cornerEquiv_of_cornerPieceEquiv_eq_one (n : {m : ℕ // m ≥ 5}) {cube 
   refine c.inductionOn ?_
   simp [cornerEquiv_mk, h]
 
-/-- A Rubik's cube defines a permutation of centre square edges for each k-value -/
-def centreSquareEdgeKEquiv (n : {m : ℕ // m ≥ 5}) (k : Fin (n.val - 4))
-(h : k.val % 2 = (n.val + 1) % 2) :
-BigIllegalRubik n →* Perm (CentreSquareEdgeK ⟨n.val, by omega⟩ k h) where
-  toFun cube := sorry
-  map_one' := sorry
-  map_mul' := sorry
-
-/-- A Rubik's cube defines a permutation of centre square corners for each k-value -/
-def centreSquareCornerKEquiv (n : {m : ℕ // m ≥ 5}) (k : Fin (n.val - 3))
-(h : k.val % 2 = n.val % 2) :
-BigIllegalRubik n →*
-Perm (CentreSquareCornerK ⟨n.val, by omega⟩ ⟨k.val, by simp⟩ h) where
-  toFun := sorry
-  map_one' := sorry
-  map_mul' := sorry
-
 /-- In a Big Rubik's cube where all edges are in their correct position, the "edge value" of an edge
 represents whether it's flipped or not. -/
 def edgeValue {n : {m : ℕ // m ≥ 5}} (cube : BigIllegalRubik n) (e : Edge ⟨n.val, by omega⟩) :
@@ -418,18 +411,6 @@ edgeValue cube ⟦e⟧ = -1 ↔ cube.edgePieceEquiv e = e.flip := by
   obtain he | he := this
   · contradiction
   · rw [he]
-
-theorem edgeValue_mul {n : {m : ℕ // m ≥ 5}} {cube₁ cube₂ : BigIllegalRubik n}
-(he₁ : edgeEquiv n cube₁ = 1) (he₂ : edgeEquiv n cube₂ = 1) (e : Edge ⟨n.val, by omega⟩) :
-edgeValue (cube₁ * cube₂) e = edgeValue cube₁ e * edgeValue cube₂ e := by
-  have he₃ : edgeEquiv n (cube₁ * cube₂) = 1 := by rw [map_mul, he₁, he₂, one_mul]
-  refine e.inductionOn ?_
-  intro e
-  obtain h₁ | h₁ := Int.units_eq_one_or (edgeValue cube₁ ⟦e⟧) <;>
-  obtain h₂ | h₂ := Int.units_eq_one_or (edgeValue cube₂ ⟦e⟧) <;>
-  rw [h₁, h₂] <;>
-  simp only [edgeValue_eq_one, edgeValue_eq_neg_one he₁, edgeValue_eq_neg_one he₂] at h₁ h₂ <;>
-  simp [edgeValue_eq_one, edgeValue_eq_neg_one he₃, h₁, h₂, edge_flip]
 
 /-- In a Rubik's cube where all corners are in their correct position, the "corner value" of a
 corner represents the number of **counterclockwise** turns required to solve it. -/
@@ -466,23 +447,5 @@ cornerValue cube ⟦c⟧ = 2 ↔ cube.cornerPieceEquiv c = c.cyclic.cyclic := by
     add_assoc, this, add_zero, CornerPiece.value_eq_iff_of_equiv,
     ← CornerPiece.cyclic_inj, ← CornerPiece.cyclic_inj, CornerPiece.cyclic₃]
   rw [← Corner.eq, Corner.mk_cyclic, ← cornerEquiv_mk, hc, Perm.one_apply]
-
-theorem cornerValue_mul {n : {m // m ≥ 5}} {cube₁ cube₂ : BigIllegalRubik n}
-(hc₁ : cornerEquiv n cube₁ = 1) (hc₂ : cornerEquiv n cube₂ = 1) (c : Corner) :
-    cornerValue (cube₁ * cube₂) c = cornerValue cube₁ c + cornerValue cube₂ c := by
-  have hc₃ : cornerEquiv n (cube₁ * cube₂) = 1 := by rw [map_mul, hc₁, hc₂, one_mul]
-  have H₁ : (1 + 1 : ZMod 3) = 2 := rfl
-  have H₂ : (1 + 2 : ZMod 3) = 0 := rfl
-  have H₃ : (2 + 1 : ZMod 3) = 0 := rfl
-  have H₄ : (2 + 2 : ZMod 3) = 1 := rfl
-  refine c.inductionOn ?_
-  intro c
-  obtain h₁ | h₁ | h₁ := ZMod.cases (cube₁.cornerValue ⟦c⟧) <;>
-  obtain h₂ | h₂ | h₂ := ZMod.cases (cube₂.cornerValue ⟦c⟧) <;>
-  rw [h₁, h₂] <;>
-  simp only [cornerValue_eq_zero hc₁, cornerValue_eq_zero hc₂, cornerValue_eq_one hc₁,
-    cornerValue_eq_one hc₂, cornerValue_eq_two hc₁, cornerValue_eq_two hc₂] at h₁ h₂ <;>
-  simp [cornerValue_eq_zero hc₃, cornerValue_eq_one hc₃, cornerValue_eq_two hc₃, H₁, H₂, H₃, H₄,
-    h₁, h₂, corner_cyclic]
 
 end BigIllegalRubik

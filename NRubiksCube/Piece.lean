@@ -7,25 +7,39 @@ Some parts have been modified significantly.
 -/
 import Mathlib.Combinatorics.Colex
 import Mathlib.Data.Finset.Sort
+import Mathlib.Data.Finset.Basic
+import Mathlib.Data.Finset.Card
 import Mathlib.Data.ZMod.Defs
 import NRubiksCube.Equiv
 import NRubiksCube.Orientation
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Multiset.Basic
 
-namespace Orientation
+/-!
+Defines structures for the pieces in an n×n×n Rubik's cube.
+
+We subdivide the edges and corners into
+their individual stickers. This gives us `EdgePiece`s and `CornerPiece`s, which can be
+identified with `IsAdjacent` oriented pairs, and `IsAdjacent₃` oriented triples, so that
+permutations of these tuples yield the other pieces in the same edge or corner.
+
+`Edge` and `Corner` are then defined as quotients of `EdgePiece` and `CornerPiece` under the
+relation of being in the same edge or corner..
+
+We ignore centremost piece for odd cubes, as they're always fixed in place, and subdivide the rest
+of the centre pieces into `CentreSquareEdge` and `CentreSquareCorner` pieces.
+-/
+
+open Orientation
 
 /-- A corner piece is an ordered triple of pairwise adjacent orientations, oriented as the standard
-basis.
-defined by orientation of fst, snd and third piece
-and the proof that they form a corner piece.
--/
-structure CornerPiece where
+basis. -/
+structure CornerPiece : Type where
   fst : Orientation
   snd : Orientation
   thd : Orientation
   isAdjacent₃ : IsAdjacent₃ fst snd thd
-deriving DecidableEq, Fintype
+deriving instance DecidableEq, Fintype for CornerPiece
 
 namespace CornerPiece
 
@@ -67,9 +81,9 @@ instance Inhabited : Inhabited CornerPiece where
 instance : Repr CornerPiece :=
   ⟨fun c ↦ [c.fst, c.snd, c.thd].repr⟩
 
-/--
-all orientations of a corner piece are distinct.
--/
+instance : LinearOrder CornerPiece :=
+  LinearOrder.lift' (fun c ↦ [c.fst, c.snd]) (fun _ _ ↦ by simp [ext_iff])
+
 theorem ne (e : CornerPiece) : e.fst ≠ e.snd ∧ e.snd ≠ e.thd ∧ e.thd ≠ e.fst := e.isAdjacent₃.ne
 
 /-- Permutes the colors in a corner cyclically.
@@ -136,14 +150,11 @@ theorem cyclic_cyclic_ne (c : CornerPiece) : c.cyclic.cyclic ≠ c :=
 theorem axis_thd (c : CornerPiece) : c.thd.axis = c.fst.axis.other c.snd.axis := by
   rw [c.isAdjacent₃.eq_cross, axis_cross]
 
-/-- Constructs the finset containing the corner's orientations.
-toFinset(c) = <{c.fst, c.snd, c.thd}, proof that they are distinct>.
--/
-def toFinset (e : CornerPiece) : Finset Orientation :=
-  ⟨{e.fst, e.snd, e.thd}, by
-    obtain ⟨h₁, h₂, h₃⟩ := e.isAdjacent₃.ne
+/-- Constructs the finset containing the corner's orientations. -/
+def toFinset (c : CornerPiece) : Finset Orientation :=
+  ⟨{c.fst, c.snd, c.thd}, by
+    obtain ⟨h₁, h₂, h₃⟩ := c.isAdjacent₃.ne
     simpa using ⟨⟨h₁, h₃.symm⟩, h₂⟩⟩
-
 
 /--
 c.toFinset.val = {c.fst, c.snd, c.thd}
@@ -275,9 +286,9 @@ theorem equiv_iff' {c₁ c₂ : CornerPiece} : c₁ ≈ c₂ ↔ c₁ = c₂ ∨
   convert Iff.rfl using 3
   rw [← cyclic_inj, cyclic₃]
 
-/--
-c and c.cyclic are equivalent.
--/
+instance : DecidableRel (α := CornerPiece) (· ≈ ·) :=
+  fun _ _ ↦ decidable_of_iff _ equiv_iff.symm
+
 theorem cyclic_equiv (c : CornerPiece) : c.cyclic ≈ c :=
   c.cyclic_toFinset
 
@@ -330,9 +341,12 @@ Provides a default corner instance
 instance : Inhabited Corner :=
   Quotient.instInhabitedQuotient _
 
-/--
-⟦c1⟧ = ⟦c2⟧ iff c1 ≈ c2
--/
+instance : DecidableEq Corner :=
+  Quotient.decidableEq
+
+instance : Fintype Corner :=
+  Quotient.fintype _
+
 @[simp]
 protected theorem eq {c₁ c₂ : CornerPiece} : (⟦c₁⟧ : Corner) = ⟦c₂⟧ ↔ c₁ ≈ c₂ :=
   Quotient.eq
@@ -858,17 +872,21 @@ protected theorem eq {e₁ e₂ : EdgePiece} : (⟦e₁⟧ : Edge) = ⟦e₂⟧ 
 end Edge
 /-
 /-- An edge piece is an ordered pair of adjacent orientations along with an index. -/
-structure EdgePiece (n : {m : ℕ // m ≥ 3}) where
+structure EdgePiece (n : {m : ℕ // m ≥ 3}) : Type where
   fst : Orientation
   snd : Orientation
   isAdjacent : IsAdjacent fst snd
   index : Fin (n.val - 2)
+
 deriving DecidableEq, Fintype
 
 namespace EdgePiece
 
 instance (n : {m : ℕ // m ≥ 3}) : Inhabited (EdgePiece n) where
   default := ⟨U, B, by decide, ⟨0, by omega⟩⟩
+
+instance (n : {m : ℕ // m ≥ 3}) : Repr (EdgePiece n) :=
+  ⟨fun e ↦ ([e.fst, e.snd], e.index).repr⟩
 
 theorem ne (n : {m : ℕ // m ≥ 3}) (e : EdgePiece n) : e.fst ≠ e.snd := e.isAdjacent.ne
 
@@ -958,24 +976,88 @@ instance (n : {m : ℕ // m ≥ 3}): Setoid (EdgePiece n) where
       simp [h₁, h₂]
 
 theorem equiv_def {n : {m : ℕ // m ≥ 3}} {e₁ e₂ : EdgePiece n} :
-  e₁ ≈ e₂ ↔ e₁.toFinset = e₂.toFinset ∧ e₁.index = e₂.index := Iff.rfl
+    e₁ ≈ e₂ ↔ e₁.toFinset = e₂.toFinset ∧ e₁.index = e₂.index := Iff.rfl
+
+theorem flip_equiv {n : {m : ℕ // m ≥ 3}} (e : EdgePiece n) : e.flip ≈ e := by
+  simp [equiv_def, e.flip_toFinset]
+
+@[simp]
+theorem finset_pair_eq_iff {α : Type*} [DecidableEq α] {a b x y : α} (h₁ : a ≠ b) (h₂ : x ≠ y) :
+    ({a, b} : Finset α) = ({x, y} : Finset α) ↔ (a = x ∧ b = y) ∨ (a = y ∧ b = x) := by
+  simp [Finset.ext_iff, Finset.mem_insert, Finset.mem_singleton, or_self]
+  constructor
+  · intro H
+    have ha := H a
+    simp [h₁] at ha
+    have hb := H b
+    simp [Ne.symm h₁] at hb
+    cases ha with
+    | inl ha_eq_x =>
+      cases hb with
+      | inl hb_eq_x =>
+          exfalso; exact h₁ (ha_eq_x ▸ hb_eq_x.symm)
+      | inr hb_eq_y =>
+          left; exact ⟨ha_eq_x, hb_eq_y⟩
+    | inr ha_eq_y =>
+      cases hb with
+      | inl hb_eq_x =>
+          right; exact ⟨ha_eq_y, hb_eq_x⟩
+      | inr hb_eq_y =>
+          exfalso; exact h₁ (ha_eq_y ▸ hb_eq_y.symm)
+  · intro H
+    intro z
+    cases H with
+    | inl h_match =>
+      simp_all only [ne_eq, not_false_eq_true]
+    | inr h_swap =>
+      simp_all only [ne_eq]
+      obtain ⟨left, right⟩ := h_swap
+      subst left right
+      apply Iff.intro
+      · intro a_1
+        cases a_1 with
+        | inl h =>
+          subst h
+          simp_all only [or_true]
+        | inr h_1 =>
+          subst h_1
+          simp_all only [or_false]
+      · intro a_1
+        cases a_1 with
+        | inl h =>
+          subst h
+          simp_all only [or_true]
+        | inr h_1 =>
+          subst h_1
+          simp_all only [or_false]
 
 theorem equiv_iff (n : {m : ℕ // m ≥ 3}) :
-∀ {e₁ e₂ : EdgePiece n}, e₁ ≈ e₂ ↔ e₁ = e₂ ∨ e₁ = e₂.flip := by
-    simp_rw [equiv_def]
+    ∀ {e₁ e₂ : EdgePiece n}, e₁ ≈ e₂ ↔ e₁ = e₂ ∨ e₁ = e₂.flip := by
     intro e₁ e₂
     constructor
     · intro h
+      simp [equiv_def] at h
+      obtain ⟨h₁, h₂⟩ := h
+      have h₃ : e₁.toFinset.val = e₂.toFinset.val := by simp [h₁]
+      have p₁ : e₁.fst ≠ e₁.snd := e₁.isAdjacent.ne
+      have p₂ : e₂.fst ≠ e₂.snd := e₂.isAdjacent.ne
+      simp [toFinset_val] at h₃
+      have h₄ : e₁.fst = e₂.fst ∧ e₁.snd = e₂.snd ∨ e₁.fst = e₂.snd ∧ e₁.snd = e₂.fst := by
+        apply (finset_pair_eq_iff p₁ p₂).1
+        apply Finset.eq_of_veq
+        simp_all only [ne_eq, Finset.insert_val, Finset.singleton_val, Multiset.mem_singleton,
+        not_false_eq_true, Multiset.ndinsert_of_not_mem]
+      by_cases c : e₁.fst = e₂.fst ∧ e₁.snd = e₂.snd
+      · left
+        simp [ext_iff, c, h₂]
+      · simp [c] at h₄
+        right
+        simp [ext_iff, h₄, h₂]
+    · intro h
       by_cases h₁ : e₁ = e₂
-      · simp [h₁]
-      · simp [h₁]
-        sorry -- TODO: finish this
-
-    · by_cases h : e₁ = e₂
-      · simp [h]
-      · simp [h]
-        intro h₁
-        simp [h₁, flip_toFinset, flip_index]
+      · simp [h₁, EdgePiece.equiv_def]
+      · simp [h₁] at h
+        simp [h, flip_equiv]
 
 end EdgePiece
 
@@ -998,7 +1080,7 @@ is atleast 3 (which requires n atleast 5).
 These pieces are defined by the side length of the square it belongs to,
 their color, as well an index.
 TODO: How do we exactly index? and does it matter? -/
-structure CentreSquareEdge (n : {m : ℕ // m ≥ 5}) where
+structure CentreSquareEdge (n : {m : ℕ // m ≥ 5}) : Type where
   k : Fin (n.val - 4) -- side length - 3
   h : k.val % 2 = (n.val + 1) % 2 -- parity condition
   face : Orientation
@@ -1059,7 +1141,7 @@ is atleast 2 (which requires n atleast 4).
 
 These pieces are define by the side length of the square it belongs tozz,
 their color, as well as an index ranging from 0 to 3. -/
-structure CentreSquareCorner (n : {m : ℕ // m ≥ 4}) where
+structure CentreSquareCorner (n : {m : ℕ // m ≥ 4}) : Type where
   k : Fin (n.val - 3) -- side length - 2
   h : k.val % 2 = n.val % 2
   face : Orientation
@@ -1105,5 +1187,3 @@ end CentreSquareCorner
 def CentreSquareCornerK (n : {m : ℕ // m ≥ 4}) (k : Fin (n.val - 3))
 (_h : k.val % 2 = n.val % 2) : Type :=
   {e : CentreSquareCorner n // e.k = k}
-
-end Orientation
