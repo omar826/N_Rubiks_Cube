@@ -9,6 +9,17 @@ import NRubiksCube.FourLemmas
 set_option maxRecDepth 10000
 set_option maxHeartbeats 10000000
 
+/-!
+# Solvability Conditions for the 4x4x4 Rubik's Revenge
+
+In this file, we prove the theorem:
+A configuration `s : CubeState` is solvable if and only if:
+1. `sgn(σ) = sgn(ρ)` (Corner and Center permutation signs match)
+2. `∑ xᵢ ≡ 0 (mod 3)` (Corner orientation sum is 0)
+3. `yᵢ = 1 - δ_{t,s}` (Edge orientation condition based on slot type 't' and piece type 's')
+
+-/
+
 namespace FourRubik
 
 open BigOperators
