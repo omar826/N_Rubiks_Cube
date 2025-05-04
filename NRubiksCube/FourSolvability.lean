@@ -7,8 +7,6 @@ import Mathlib.GroupTheory.SpecificGroups.Alternating -- For AlternatingGroup de
 import Mathlib.Data.List.Induction
 import NRubiksCube.FourRubik -- Assuming your main file is named FourRubik.lean
 
-#check Equiv.Perm.sign
-
 set_option maxRecDepth 10000
 set_option maxHeartbeats 10000000
 
@@ -48,6 +46,105 @@ def IsSolvable (s : CubeState) : Prop :=
     of the center permutation. -/
 def checkPermSigns (s : CubeState) : Prop :=
   Perm.sign s.corner_perm = Perm.sign s.center_perm
+
+theorem one_check_perm_signs : checkPermSigns 1 := by
+  unfold checkPermSigns
+  decide
+
+theorem move_check_perm_signs (m : BasicMove) (s : CubeState) :
+    checkPermSigns s → checkPermSigns (apply_move m s) := by
+  intro h
+  unfold checkPermSigns at *
+  cases m with
+  | R =>
+    dsimp [apply_move, r_move_corner_perm, r_move_center_perm]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | L =>
+    dsimp [apply_move, l_move_corner_perm, l_move_center_perm]
+    dsimp [rotY2_corner_perm, rotY_corner_perm, rotY2_center_perm, rotY_center_perm]
+    dsimp [r_move_corner_perm, r_move_center_perm]
+    simp_rw [Perm.sign_mul, Perm.sign_inv]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | U =>
+    dsimp [apply_move, u_move_corner_perm, u_move_center_perm]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | D =>
+    dsimp [apply_move, d_move_corner_perm, d_move_center_perm]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | F =>
+    dsimp [apply_move, f_move_corner_perm, f_move_center_perm]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | B =>
+    dsimp [apply_move, b_move_corner_perm, b_move_center_perm]
+    dsimp [rotY2_corner_perm, rotY_corner_perm, rotY2_center_perm, rotY_center_perm]
+    dsimp [f_move_corner_perm, f_move_center_perm]
+    simp_rw [Perm.sign_mul, Perm.sign_inv]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | CR =>
+    dsimp [apply_move, cr_move_corner_perm, cr_move_center_perm]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | CL =>
+    dsimp [apply_move, cl_move_corner_perm, cl_move_center_perm]
+    dsimp [rotY2_corner_perm, rotY_corner_perm, rotY2_center_perm, rotY_center_perm]
+    dsimp [cr_move_corner_perm, cr_move_center_perm]
+    simp_rw [Perm.sign_mul, Perm.sign_inv]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | CU =>
+    dsimp [apply_move, cu_move_corner_perm, cu_move_center_perm]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | CD =>
+    dsimp [apply_move, cd_move_corner_perm, cd_move_center_perm]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | CF =>
+    dsimp [apply_move, cf_move_corner_perm, cf_move_center_perm]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+  | CB =>
+    dsimp [apply_move, cb_move_corner_perm, cb_move_center_perm]
+    dsimp [rotY2_corner_perm, rotY_corner_perm, rotY2_center_perm, rotY_center_perm]
+    dsimp [cf_move_corner_perm, cf_move_center_perm]
+    simp_rw [Perm.sign_mul, Perm.sign_inv]
+    simp_rw [Perm.sign_mul]
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp [h]
+
+theorem moves_check_perm_signs (moves : List BasicMove) (s : CubeState) :
+    checkPermSigns s → checkPermSigns (apply_move_list moves s) := by
+  induction moves using List.reverseRecOn with
+  | nil => intro h; exact h
+  | append_singleton ms m ih =>
+    intro h
+    rw [apply_move_list, List.foldl_append]
+    simp_all only [forall_const, List.foldl_cons, List.foldl_nil]
+    apply move_check_perm_signs
+    exact ih
+
+theorem is_solvable_check_perm_signs (s : CubeState) (hs : IsSolvable s) :
+    checkPermSigns s := by
+  let ⟨moves, h⟩ := hs
+  rw [h]
+  exact moves_check_perm_signs moves 1 one_check_perm_signs
 
 -- ## Condition 2: Corner Twist Sum
 
@@ -238,189 +335,78 @@ theorem move_corner_center_sign_invariant (m : BasicMove) (s : CubeState) :
     Perm.sign (apply_move m s).corner_perm * Perm.sign (apply_move m s).center_perm := by
   cases m with
   | R =>
-    dsimp [apply_move]
-    unfold r_move_corner_perm
-    unfold r_move_center_perm
+    dsimp [apply_move, r_move_corner_perm, r_move_center_perm]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | L =>
-    dsimp [apply_move]
-    unfold l_move_corner_perm
+    dsimp [apply_move, l_move_corner_perm, l_move_center_perm]
+    dsimp [rotY2_corner_perm, rotY_corner_perm, rotY2_center_perm, rotY_center_perm]
+    dsimp [r_move_corner_perm, r_move_center_perm]
+    simp_rw [Perm.sign_mul, Perm.sign_inv]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_inv]
-    unfold rotY2_corner_perm
-    unfold rotY_corner_perm
-    unfold r_move_corner_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    unfold l_move_center_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_inv]
-    unfold rotY2_center_perm
-    unfold rotY_center_perm
-    unfold r_move_center_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | U =>
-    dsimp [apply_move]
-    unfold u_move_corner_perm
-    unfold u_move_center_perm
+    dsimp [apply_move, u_move_corner_perm, u_move_center_perm]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | D =>
-    dsimp [apply_move]
-    unfold d_move_corner_perm
-    unfold d_move_center_perm
+    dsimp [apply_move, d_move_corner_perm, d_move_center_perm]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | F =>
-    dsimp [apply_move]
-    unfold f_move_corner_perm
-    unfold f_move_center_perm
+    dsimp [apply_move, f_move_corner_perm, f_move_center_perm]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | B =>
-    dsimp [apply_move]
-    unfold b_move_corner_perm
+    dsimp [apply_move, b_move_corner_perm, b_move_center_perm]
+    dsimp [rotY2_corner_perm, rotY_corner_perm, rotY2_center_perm, rotY_center_perm]
+    dsimp [f_move_corner_perm, f_move_center_perm]
+    simp_rw [Perm.sign_mul, Perm.sign_inv]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_inv]
-    unfold rotY2_corner_perm
-    unfold rotY_corner_perm
-    unfold f_move_corner_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap]
-    unfold b_move_center_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_inv]
-    unfold rotY2_center_perm
-    unfold rotY_center_perm
-    unfold f_move_center_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | CR =>
-    dsimp [apply_move]
-    unfold cr_move_corner_perm
-    unfold cr_move_center_perm
+    dsimp [apply_move, cr_move_corner_perm, cr_move_center_perm]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | CL =>
-    dsimp [apply_move]
-    unfold cl_move_corner_perm
+    dsimp [apply_move, cl_move_corner_perm, cl_move_center_perm]
+    dsimp [rotY2_corner_perm, rotY_corner_perm, rotY2_center_perm, rotY_center_perm]
+    dsimp [cr_move_corner_perm, cr_move_center_perm]
+    simp_rw [Perm.sign_mul, Perm.sign_inv]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_inv]
-    unfold rotY2_corner_perm
-    unfold rotY_corner_perm
-    unfold cr_move_corner_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    unfold cl_move_center_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_inv]
-    unfold rotY2_center_perm
-    unfold rotY_center_perm
-    unfold cr_move_center_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | CU =>
-    dsimp [apply_move]
-    unfold cu_move_corner_perm
-    unfold cu_move_center_perm
+    dsimp [apply_move, cu_move_corner_perm, cu_move_center_perm]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | CD =>
-    dsimp [apply_move]
-    unfold cd_move_corner_perm
-    unfold cd_move_center_perm
+    dsimp [apply_move, cd_move_corner_perm, cd_move_center_perm]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | CF =>
-    dsimp [apply_move]
-    unfold cf_move_corner_perm
-    unfold cf_move_center_perm
+    dsimp [apply_move, cf_move_corner_perm, cf_move_center_perm]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
   | CB =>
-    dsimp [apply_move]
-    unfold cb_move_corner_perm
+    dsimp [apply_move, cb_move_corner_perm, cb_move_center_perm]
+    dsimp [rotY2_corner_perm, rotY_corner_perm, rotY2_center_perm, rotY_center_perm]
+    dsimp [cf_move_corner_perm, cf_move_center_perm]
+    simp_rw [Perm.sign_mul, Perm.sign_inv]
     simp_rw [Perm.sign_mul]
-    rw [Perm.sign_inv]
-    unfold rotY2_corner_perm
-    unfold rotY_corner_perm
-    unfold cf_move_corner_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    unfold cb_move_center_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_inv]
-    unfold rotY2_center_perm
-    unfold rotY_center_perm
-    unfold cf_move_center_perm
-    simp_rw [Perm.sign_mul]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    rw [Perm.sign_swap, Perm.sign_swap, Perm.sign_swap]
-    · simp
-    all_goals try decide
+    repeat (rw [Perm.sign_swap] <;> try decide)
+    simp
+
 
 theorem moves_corner_center_sign_invariant (moves : List BasicMove) (s : CubeState) :
     Perm.sign s.corner_perm * Perm.sign s.center_perm =
@@ -744,7 +730,7 @@ theorem moves_preserves_checkEdgeFlip (moves : List BasicMove) (s : CubeState) :
     intro h
     rw [apply_move_list, List.foldl_append]
     simp_all only [forall_const, List.foldl_cons, List.foldl_nil]
-    apply move_check_edge_flip
+    apply lemma7_step2_move_invariance
     exact ih
 
 /-- Lemma 7: The edge flip condition `checkEdgeFlip` is invariant under solvable moves. -/
@@ -752,7 +738,7 @@ theorem lemma7_edge_flip_invariant (s : CubeState) (hs : IsSolvable s) :
     checkEdgeFlip s := by
   obtain ⟨moves, hm⟩ := hs
   rw [hm]
-  exact moves_preserves_checkEdgeFlip moves 1 (one_check_edge_flip)
+  exact moves_preserves_checkEdgeFlip moves 1 lemma7_step1_initial_state
 
 
 lemma apply_move_list_inv_move_cancel (m : BasicMove) (s : CubeState) :
@@ -844,8 +830,6 @@ theorem isSolvable_apply_move_list (M : List BasicMove) (s : CubeState) :
 
 
 -- ## Main Solvability Theorem Statement
-#check Equiv.Perm.sign
-#check ℤˣ
 
 theorem solvability_iff (s : CubeState) :
     IsSolvable s ↔ checkPermSigns s ∧ checkCornerTwist s ∧ checkEdgeFlip s := by
@@ -859,8 +843,7 @@ theorem solvability_iff (s : CubeState) :
       lemma2_sign_invariant s h_solv
     -- We need to show permSign s.corner_perm = permSign s.center_perm
     -- This follows because for a, b ∈ {-1, 1}, a*b=1 implies a=b
-    have h_sign_eq : checkPermSigns s := by
-      sorry
+    have h_sign_eq : checkPermSigns s := is_solvable_check_perm_signs s h_solv
       -- Prove Condition 2: checkCornerTwist s
     have h_twist : checkCornerTwist s :=
       lemma1_corner_twist_invariant s h_solv -- Use Lemma 1
