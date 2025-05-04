@@ -1056,7 +1056,7 @@ def cb' : List BasicMove := inv_move BasicMove.CB
 
 
 def view_corner_cycle : IO Unit := do
-  let moves : List BasicMove := [R, R, R, D, D, D, R, U, U, U, R, R, R, D, R, U]
+  let moves : List BasicMove := r' ++ d' ++ r ++ u' ++ r' ++ d ++ r ++ u
   let final_state := apply_move_list moves 1
   printUnfoldedCube (stateToVisual final_state)
 
@@ -1075,6 +1075,7 @@ def view_test_2 : IO Unit := do
   let final_state := apply_move_list moves 1
   let final_state := apply_move_list (inv_move_list moves) final_state
   printUnfoldedCube (stateToVisual final_state)
+
 #eval view_initial
 #eval view_after_R
 #eval view_after_U
