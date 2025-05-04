@@ -934,7 +934,7 @@ theorem solvability_iff (s : CubeState) :
           simp only [one_mul]
 
           exact h_center_perm₃
-.
+
     -- Step 5: Check orientations of s₄
     have h_twist₄ : checkCornerTwist s₄ := by
 
