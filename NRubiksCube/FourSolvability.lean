@@ -200,11 +200,29 @@ def get_move_corner_ori_delta (m : BasicMove) : CornerSlot → ZMod 3 :=
 def get_move_corner_perm (m : BasicMove) : Perm CornerSlot :=
   match m with
   | .R => r_move_corner_perm | .L => l_move_corner_perm
-  | .U => u_move_corner_perm | .D => d_move_corner_perm -- Assuming d_move defined
-  | .F => f_move_corner_perm | .B => b_move_corner_perm -- Assuming f_move/b_move defined
-  | .CR => cr_move_corner_perm | .CL => cl_move_corner_perm -- Assuming cl_move defined
-  | .CU => cu_move_corner_perm | .CD => cd_move_corner_perm -- Assuming cu/cd defined
-  | .CF => cf_move_corner_perm | .CB => cb_move_corner_perm -- Assuming cf/cb defined
+  | .U => u_move_corner_perm | .D => d_move_corner_perm
+  | .F => f_move_corner_perm | .B => b_move_corner_perm
+  | .CR => cr_move_corner_perm | .CL => cl_move_corner_perm
+  | .CU => cu_move_corner_perm | .CD => cd_move_corner_perm
+  | .CF => cf_move_corner_perm | .CB => cb_move_corner_perm
+
+def get_move_edge_perm (m : BasicMove) : Perm EdgeSlot :=
+  match m with
+  | .R => r_move_edge_perm | .L => l_move_edge_perm
+  | .U => u_move_edge_perm | .D => d_move_edge_perm
+  | .F => f_move_edge_perm | .B => b_move_edge_perm
+  | .CR => cr_move_edge_perm | .CL => cl_move_edge_perm
+  | .CU => cu_move_edge_perm | .CD => cd_move_edge_perm
+  | .CF => cf_move_edge_perm | .CB => cb_move_edge_perm
+
+def get_move_center_perm (m : BasicMove) : Perm CenterSlot :=
+  match m with
+  | .R => r_move_center_perm | .L => l_move_center_perm
+  | .U => u_move_center_perm | .D => d_move_center_perm
+  | .F => f_move_center_perm | .B => b_move_center_perm
+  | .CR => cr_move_center_perm | .CL => cl_move_center_perm
+  | .CU => cu_move_center_perm | .CD => cd_move_center_perm
+  | .CF => cf_move_center_perm | .CB => cb_move_center_perm
 
 theorem sum_corner_ori_delta_eq_zero (m : BasicMove) :
     ∑ (i : CornerSlot), (get_move_corner_ori_delta m) i = 0 := by
@@ -763,12 +781,272 @@ lemma apply_move_list_append (L1 L2 : List BasicMove) (s : CubeState) :
     -- This matches the inductive hypothesis applied to the state (apply_move m s)
     exact ih (apply_move m s)
 
+lemma apply_move_list_corner_perm_comp (M : List BasicMove) (s : CubeState) :
+  (apply_move_list M s).corner_perm = (apply_move_list M 1).corner_perm * s.corner_perm := by
+  have h : CubeState.corner_perm 1 = 1 := by decide
+  induction M generalizing s with
+  | nil =>
+    simp only [apply_move_list, List.foldl_nil, CubeState.corner_perm, initialState, One.one, mul_one]
+     -- This is trivial, but needed for the proof
+    rw [h]
+    rfl -- This should be true by reflexivity
+  | cons m ms ih =>
+    simp only [apply_move_list, List.foldl_cons] at * -- Unfold definitions everywhere
+    rw [ih (apply_move m s)] -- Apply IH to state after move m
+    rw [ih (apply_move m 1)] -- Apply IH to state after move m from initial
+    -- Need: (apply_move m s).corner_perm = (apply_move m 1).corner_perm * s.corner_perm
+    have h_step : (apply_move m s).corner_perm = (apply_move m 1).corner_perm * s.corner_perm := by
+      -- Relies on apply_move definition: new_perm = move_perm * old_perm
+      cases m <;> simp only [apply_move, CubeState.corner_perm, initialState, One.one, mul_one, mul_assoc] -- Use simp (or decide)
+      <;> rw [h] -- This is needed for the initial state
+      <;> rfl
+      -- Or potentially: cases m <;> decide
+    rw [h_step, mul_assoc]
+
+
+-- Specific composition lemma for edge permutations
+lemma apply_move_list_edge_perm_comp (M : List BasicMove) (s : CubeState) :
+  (apply_move_list M s).edge_perm = (apply_move_list M 1).edge_perm * s.edge_perm := by
+  have h : CubeState.edge_perm 1 = 1 := by decide
+  induction M generalizing s with
+  | nil =>
+    simp only [apply_move_list, List.foldl_nil, CubeState.edge_perm, initialState, One.one, mul_one]
+    rw [h]; rfl
+ -- This is trivial, but needed for the proof
+  | cons m ms ih =>
+    simp only [apply_move_list, List.foldl_cons] at * -- Unfold definitions everywhere
+    rw [ih (apply_move m s)] -- Apply IH to state after move m
+    rw [ih (apply_move m 1)] -- Apply IH to state after move m from initial
+    -- Need: (apply_move m s).edge_perm = (apply_move m 1).edge_perm * s.edge_perm
+    have h_step : (apply_move m s).edge_perm = (apply_move m 1).edge_perm * s.edge_perm := by
+      -- Relies on apply_move definition: new_perm = move_perm * old_perm
+      cases m <;> simp only [apply_move, CubeState.edge_perm, initialState, One.one, mul_one, mul_assoc] -- Use simp (or decide)
+      -- Or potentially: cases m <;> decide
+      <;> rw [h] -- This is needed for the initial state
+      <;> rfl
+    rw [h_step, mul_assoc]
+
+lemma apply_move_list_center_perm_comp (M : List BasicMove) (s : CubeState) :
+  (apply_move_list M s).center_perm = (apply_move_list M 1).center_perm * s.center_perm := by
+  induction M generalizing s with
+  | nil =>
+    simp [apply_move_list, CubeState.center_perm, initialState, One.one, mul_one]
+  | cons m ms ih =>
+    simp only [apply_move_list, List.foldl_cons] at * -- Unfold apply_move_list using foldl everywhere
+    rw [ih (apply_move m s)] -- Apply IH to the state after move m
+    rw [ih (apply_move m 1)] -- Apply IH to the state after move m starting from 1
+    -- Need to show (apply_move m s).center_perm = (apply_move m 1).center_perm * s.center_perm
+    have h_step : (apply_move m s).center_perm = (apply_move m 1).center_perm * s.center_perm := by
+      -- Proof relies on apply_move definition: new_perm = move_perm * old_perm
+      -- and initialState.center_perm = 1
+      cases m <;> simp [apply_move, CubeState.center_perm, initialState, One.one, mul_one]
+    rw [h_step, mul_assoc] -- Apply the single-step property and associativity
+
+
+lemma apply_move_corner_perm_comp (m : BasicMove) (s : CubeState) :
+    (apply_move m s).corner_perm = (get_move_corner_perm m) * s.corner_perm := by
+  cases m <;> simp [apply_move, get_move_corner_perm, CubeState.corner_perm, initialState, One.one, mul_one]
+
+lemma apply_move_edge_perm_comp (m : BasicMove) (s : CubeState) :
+    (apply_move m s).edge_perm = (get_move_edge_perm m) * s.edge_perm := by
+  cases m <;> simp [apply_move, get_move_edge_perm, CubeState.edge_perm, initialState, One.one, mul_one]
+
+lemma apply_move_center_perm_comp (m : BasicMove) (s : CubeState) :
+    (apply_move m s).center_perm = (get_move_center_perm m) * s.center_perm := by
+  cases m <;> simp [apply_move, get_move_center_perm]
+
+lemma apply_move_corner_ori_comp (m : BasicMove) (s : CubeState) (i : CornerSlot) :
+    (apply_move m s).corner_ori i =
+    s.corner_ori ((apply_move m 1).corner_perm⁻¹ i) + (apply_move m 1).corner_ori i := by
+    cases m <;> simp [apply_move]
+
+lemma apply_move_edge_ori_comp (m : BasicMove) (s : CubeState) (i : EdgeSlot) :
+    (apply_move m s).edge_ori i =
+    s.edge_ori ((apply_move m 1).edge_perm⁻¹ i) + (apply_move m 1).edge_ori i := by
+    cases m <;> simp [apply_move]
+
+lemma apply_move_list_corner_ori_comp (M : List BasicMove) (s : CubeState) :
+    ∀i, (apply_move_list M s).corner_ori i =
+    s.corner_ori ((apply_move_list M 1).corner_perm⁻¹ i) + (apply_move_list M 1).corner_ori i := by
+  induction M using List.reverseRecOn with
+  | nil =>
+    simp [apply_move_list]
+  | append_singleton ms m ih =>
+    intro i
+    simp only [apply_move_list, List.foldl_append, List.foldl_cons, List.foldl_nil]
+    rw [← apply_move_list, ← apply_move_list]
+    rw [apply_move_corner_ori_comp m (apply_move_list ms 1)]
+    rw [apply_move_corner_ori_comp m (apply_move_list ms s)]
+    rw [ih ((apply_move m 1).corner_perm⁻¹ i)]
+    rw [apply_move_corner_perm_comp m (apply_move_list ms 1)]
+    have h : s.corner_ori ((apply_move_list ms 1).corner_perm⁻¹ ((apply_move m 1).corner_perm⁻¹ i))
+        = s.corner_ori ((get_move_corner_perm m * (apply_move_list ms 1).corner_perm)⁻¹ i) := by
+      simp only [mul_inv_rev, Perm.coe_mul, Function.comp_apply]
+      cases m <;> unfold apply_move <;> unfold get_move_corner_perm <;> simp
+    rw [h, add_assoc]
+
+lemma apply_move_list_edge_ori_comp (M : List BasicMove) (s : CubeState) :
+    ∀i, (apply_move_list M s).edge_ori i =
+    s.edge_ori ((apply_move_list M 1).edge_perm⁻¹ i) + (apply_move_list M 1).edge_ori i := by
+  induction M using List.reverseRecOn with
+  | nil =>
+    simp [apply_move_list]
+  | append_singleton ms m ih =>
+    intro i
+    simp only [apply_move_list, List.foldl_append, List.foldl_cons, List.foldl_nil]
+    rw [← apply_move_list, ← apply_move_list]
+    rw [apply_move_edge_ori_comp m (apply_move_list ms 1)]
+    rw [apply_move_edge_ori_comp m (apply_move_list ms s)]
+    rw [ih ((apply_move m 1).edge_perm⁻¹ i)]
+    rw [apply_move_edge_perm_comp m (apply_move_list ms 1)]
+    have h : s.edge_ori ((apply_move_list ms 1).edge_perm⁻¹ ((apply_move m 1).edge_perm⁻¹ i))
+        = s.edge_ori ((get_move_edge_perm m * (apply_move_list ms 1).edge_perm)⁻¹ i) := by
+      simp only [mul_inv_rev, Perm.coe_mul, Function.comp_apply]
+      cases m <;> unfold apply_move <;> unfold get_move_edge_perm <;> simp
+    rw [h, add_assoc]
+
+lemma apply_move_inv_move_one_corner_perm (m : BasicMove) :
+    (apply_move_list (inv_move m) (apply_move m 1)).corner_perm = 1 := by
+  dsimp [inv_move, apply_move_list]
+  cases m
+  <;> simp [apply_move_list, apply_move]
+  <;> fin_cases i <;> decide
+
+lemma apply_move_inv_move_one_edge_perm (m : BasicMove) :
+    (apply_move_list (inv_move m) (apply_move m 1)).edge_perm = 1 := by
+  cases m
+  <;> simp [apply_move_list, apply_move]
+  <;> fin_cases i <;> decide
+
+lemma apply_move_inv_move_one_center_perm (m : BasicMove) :
+    (apply_move_list (inv_move m) (apply_move m 1)).center_perm = 1 := by
+  cases m
+  <;> simp [apply_move_list, apply_move]
+  <;> fin_cases i <;> decide
+
+lemma apply_move_inv_move_one_corner_ori (m : BasicMove) (i : CornerSlot):
+    (apply_move_list (inv_move m) (apply_move m 1)).corner_ori i = 0 := by
+  cases m
+  <;> simp [apply_move_list, apply_move]
+  <;> fin_cases i <;> decide
+
+lemma apply_move_inv_move_one_edge_ori (m : BasicMove) (i : EdgeSlot):
+    (apply_move_list (inv_move m) (apply_move m 1)).edge_ori i = 0 := by
+  cases m
+  <;> simp [apply_move_list, apply_move]
+  <;> fin_cases i <;> decide
+
 lemma apply_move_list_inv_move_cancel (m : BasicMove) (s : CubeState) :
     apply_move_list (inv_move m) (apply_move m s) = s := by
-  simp only [inv_move, apply_move_list, List.foldl_cons, List.foldl_nil]
-  -- Goal: apply_move m (apply_move m (apply_move m (apply_move m s))) = s
-  -- This requires proving that (apply_move m)^4 = id
-  sorry -- Placeholder for proof that apply_move^4 = id
+  dsimp
+  ext i
+  · rw [apply_move_list_corner_perm_comp]
+    have h : (apply_move m s).corner_perm = (apply_move m 1).corner_perm * s.corner_perm := by
+      rw [apply_move_corner_perm_comp]
+      cases m <;> simp [apply_move, get_move_corner_perm]
+    rw [h, ← mul_assoc]
+    rw [← apply_move_list_corner_perm_comp]
+    rw [← inv_move, apply_move_inv_move_one_corner_perm]
+    simp
+  · rw [apply_move_list_edge_perm_comp]
+    have h : (apply_move m s).edge_perm = (apply_move m 1).edge_perm * s.edge_perm := by
+      rw [apply_move_edge_perm_comp]
+      cases m <;> simp [apply_move, get_move_edge_perm]
+    rw [h, ← mul_assoc]
+    rw [← apply_move_list_edge_perm_comp]
+    rw [← inv_move, apply_move_inv_move_one_edge_perm]
+    simp
+  · rw [apply_move_list_center_perm_comp]
+    have h : (apply_move m s).center_perm = (apply_move m 1).center_perm * s.center_perm := by
+      rw [apply_move_center_perm_comp]
+      cases m <;> simp [apply_move, get_move_center_perm]
+    rw [h, ← mul_assoc]
+    rw [← apply_move_list_center_perm_comp]
+    rw [← inv_move, apply_move_inv_move_one_center_perm]
+    simp
+  · rw [apply_move_list_corner_ori_comp]
+    rw [apply_move_corner_ori_comp]
+    have h : (apply_move m 1).corner_ori ((apply_move_list [m, m, m] 1).corner_perm⁻¹ i) +
+        (apply_move_list [m, m, m] 1).corner_ori i =  0 := by
+      conv =>
+        lhs
+        rw [← show (apply_move_list (m :: [m, m, m]) 1).corner_ori i =
+                  (apply_move m 1).corner_ori ((apply_move_list [m, m, m] 1).corner_perm⁻¹ i) +
+                  (apply_move_list [m, m, m] 1).corner_ori i by
+              apply apply_move_list_corner_ori_comp [m, m, m] (apply_move m 1)]
+      have : apply_move_list [m, m, m, m] 1 = apply_move_list [m, m, m] (apply_move m 1) := by
+        simp [apply_move_list]
+      rw [this, ← inv_move, apply_move_inv_move_one_corner_ori]
+    have h' : s.corner_ori ((apply_move m 1).corner_perm⁻¹ ((apply_move_list [m, m, m] 1).corner_perm⁻¹ i))
+        = s.corner_ori i := by
+      suffices (apply_move m 1).corner_perm⁻¹ ((apply_move_list [m, m, m] 1).corner_perm⁻¹ i) = i by
+        rw [this] -- If args are equal, applying the function yields equal results
+
+      -- Prove the permutation equality
+      -- Simplify the permutations involved
+      have h_p3 : (apply_move_list [m, m, m] 1).corner_perm = (get_move_corner_perm m)^3 := by
+        simp [apply_move_list, get_move_corner_perm]
+        cases m <;> decide
+      have h_pm : (apply_move m 1).corner_perm = get_move_corner_perm m := by
+        simp [apply_move, get_move_corner_perm]
+        cases m <;> decide
+      rw [h_p3, h_pm, ← Perm.mul_apply, ← mul_inv_rev]
+      have h' : get_move_corner_perm m = (apply_move m 1).corner_perm := by
+        simp [apply_move, get_move_corner_perm]
+        cases m <;> decide
+      rw [h']
+      have : ((apply_move_list [m, m, m] (apply_move m 1))).corner_perm
+          = ((apply_move m 1).corner_perm ^ 3 * (apply_move m 1).corner_perm) := by
+        rw [apply_move_list_corner_perm_comp]
+        dsimp [apply_move_list]
+        rw [apply_move_corner_perm_comp, apply_move_corner_perm_comp]
+        rw [h_pm, pow_three]
+      rw [← this, Perm.eq_inv_iff_eq.1]
+      rw [← inv_move]
+      rw [apply_move_inv_move_one_corner_perm]
+      simp
+    rw [h', add_assoc, h, add_zero]
+  · rw [apply_move_list_edge_ori_comp]
+    rw [apply_move_edge_ori_comp]
+    have h : (apply_move m 1).edge_ori ((apply_move_list [m, m, m] 1).edge_perm⁻¹ i) +
+        (apply_move_list [m, m, m] 1).edge_ori i =  0 := by
+      conv =>
+        lhs
+        rw [← show (apply_move_list (m :: [m, m, m]) 1).edge_ori i =
+                  (apply_move m 1).edge_ori ((apply_move_list [m, m, m] 1).edge_perm⁻¹ i) +
+                  (apply_move_list [m, m, m] 1).edge_ori i by
+              apply apply_move_list_edge_ori_comp [m, m, m] (apply_move m 1)]
+      have : apply_move_list [m, m, m, m] 1 = apply_move_list [m, m, m] (apply_move m 1) := by
+        simp [apply_move_list]
+      rw [this, ← inv_move, apply_move_inv_move_one_edge_ori]
+    have h' : s.edge_ori ((apply_move m 1).edge_perm⁻¹ ((apply_move_list [m, m, m] 1).edge_perm⁻¹ i))
+        = s.edge_ori i := by
+      suffices (apply_move m 1).edge_perm⁻¹ ((apply_move_list [m, m, m] 1).edge_perm⁻¹ i) = i by
+        rw [this]
+      -- Prove the permutation equality
+      -- Simplify the permutations involved
+      have h_p3 : (apply_move_list [m, m, m] 1).edge_perm = (get_move_edge_perm m)^3 := by
+        simp [apply_move_list, get_move_edge_perm]
+        cases m <;> decide
+      have h_pm : (apply_move m 1).edge_perm = get_move_edge_perm m := by
+        simp [apply_move, get_move_edge_perm]
+        cases m <;> decide
+      rw [h_p3, h_pm, ← Perm.mul_apply, ← mul_inv_rev]
+      have h' : get_move_edge_perm m = (apply_move m 1).edge_perm := by
+        simp [apply_move, get_move_edge_perm]
+        cases m <;> decide
+      rw [h']
+      have : ((apply_move_list [m, m, m] (apply_move m 1))).edge_perm
+          = ((apply_move m 1).edge_perm ^ 3 * (apply_move m 1).edge_perm) := by
+        rw [apply_move_list_edge_perm_comp]
+        dsimp [apply_move_list]
+        rw [apply_move_edge_perm_comp, apply_move_edge_perm_comp]
+        rw [h_pm, pow_three]
+      rw [← this, Perm.eq_inv_iff_eq.1]
+      rw [← inv_move]
+      rw [apply_move_inv_move_one_edge_perm]
+      simp
+    rw [h', add_assoc, h, add_zero]
 
 lemma apply_move_list_inv_move_list_cancel (M : List BasicMove) (s : CubeState) :
     apply_move_list (inv_move_list M) (apply_move_list M s) = s := by
@@ -870,22 +1148,6 @@ theorem isSolvable_apply_move_list (M : List BasicMove) (s : CubeState) :
   -- The goal becomes: `apply_move_list M (apply_move_list M_s 1) = apply_move_list M (apply_move_list M_s 1)`
   -- This is true by reflexivity, so the proof is complete.
 
-lemma apply_move_list_center_perm_comp (M : List BasicMove) (s : CubeState) :
-  (apply_move_list M s).center_perm = (apply_move_list M 1).center_perm * s.center_perm := by
-  induction M generalizing s with
-  | nil =>
-    simp [apply_move_list, CubeState.center_perm, initialState, One.one, mul_one]
-    decide
-  | cons m ms ih =>
-    simp only [apply_move_list, List.foldl_cons] at * -- Unfold apply_move_list using foldl everywhere
-    rw [ih (apply_move m s)] -- Apply IH to the state after move m
-    rw [ih (apply_move m 1)] -- Apply IH to the state after move m starting from 1
-    -- Need to show (apply_move m s).center_perm = (apply_move m 1).center_perm * s.center_perm
-    have h_step : (apply_move m s).center_perm = (apply_move m 1).center_perm * s.center_perm := by
-      -- Proof relies on apply_move definition: new_perm = move_perm * old_perm
-      -- and initialState.center_perm = 1
-      cases m <;> simp [apply_move, CubeState.center_perm, initialState, One.one, mul_one]<;> decide
-    rw [h_step, mul_assoc] -- Apply the single-step property and associativity
 
 lemma solvability_iff_apply_move_list (M : List BasicMove) (s : CubeState) :
     IsSolvable (apply_move_list M s) ↔ IsSolvable s := by
@@ -909,50 +1171,7 @@ lemma solvability_iff_apply_move_list (M : List BasicMove) (s : CubeState) :
   · -- Direction <=: IsSolvable s → IsSolvable (apply_move_list M s)
     exact isSolvable_apply_move_list M s -- Already proved this helper
 
-lemma apply_move_list_corner_perm_comp (M : List BasicMove) (s : CubeState) :
-  (apply_move_list M s).corner_perm = (apply_move_list M 1).corner_perm * s.corner_perm := by
-  have h : CubeState.corner_perm 1 = 1 := by decide
-  induction M generalizing s with
-  | nil =>
-    simp only [apply_move_list, List.foldl_nil, CubeState.corner_perm, initialState, One.one, mul_one]
-     -- This is trivial, but needed for the proof
-    rw [h]
-    rfl -- This should be true by reflexivity
-  | cons m ms ih =>
-    simp only [apply_move_list, List.foldl_cons] at * -- Unfold definitions everywhere
-    rw [ih (apply_move m s)] -- Apply IH to state after move m
-    rw [ih (apply_move m 1)] -- Apply IH to state after move m from initial
-    -- Need: (apply_move m s).corner_perm = (apply_move m 1).corner_perm * s.corner_perm
-    have h_step : (apply_move m s).corner_perm = (apply_move m 1).corner_perm * s.corner_perm := by
-      -- Relies on apply_move definition: new_perm = move_perm * old_perm
-      cases m <;> simp only [apply_move, CubeState.corner_perm, initialState, One.one, mul_one, mul_assoc] -- Use simp (or decide)
-      <;> rw [h] -- This is needed for the initial state
-      <;> rfl
-      -- Or potentially: cases m <;> decide
-    rw [h_step, mul_assoc]
 
-
--- Specific composition lemma for edge permutations
-lemma apply_move_list_edge_perm_comp (M : List BasicMove) (s : CubeState) :
-  (apply_move_list M s).edge_perm = (apply_move_list M 1).edge_perm * s.edge_perm := by
-  have h : CubeState.edge_perm 1 = 1 := by decide
-  induction M generalizing s with
-  | nil =>
-    simp only [apply_move_list, List.foldl_nil, CubeState.edge_perm, initialState, One.one, mul_one]
-    rw [h]; rfl
- -- This is trivial, but needed for the proof
-  | cons m ms ih =>
-    simp only [apply_move_list, List.foldl_cons] at * -- Unfold definitions everywhere
-    rw [ih (apply_move m s)] -- Apply IH to state after move m
-    rw [ih (apply_move m 1)] -- Apply IH to state after move m from initial
-    -- Need: (apply_move m s).edge_perm = (apply_move m 1).edge_perm * s.edge_perm
-    have h_step : (apply_move m s).edge_perm = (apply_move m 1).edge_perm * s.edge_perm := by
-      -- Relies on apply_move definition: new_perm = move_perm * old_perm
-      cases m <;> simp only [apply_move, CubeState.edge_perm, initialState, One.one, mul_one, mul_assoc] -- Use simp (or decide)
-      -- Or potentially: cases m <;> decide
-      <;> rw [h] -- This is needed for the initial state
-      <;> rfl
-    rw [h_step, mul_assoc]
 -- ## Main Solvability Theorem Statement
 
 theorem solvability_iff (s : CubeState) :
