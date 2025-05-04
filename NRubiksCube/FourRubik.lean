@@ -47,7 +47,15 @@ structure CubeState where
   corner_ori : CornerSlot → ZMod 3 -- (ℤ₃)⁸
   edge_ori : EdgeSlot → ZMod 2
 
-#check Equiv.Perm
+@[ext]
+theorem ext (a b : CubeState) :
+  a.corner_perm = b.corner_perm → a.edge_perm = b.edge_perm →
+  a.center_perm = b.center_perm → a.corner_ori = b.corner_ori →
+  a.edge_ori = b.edge_ori → a = b := by
+  intros h1 h2 h3 h4 h5
+  cases a
+  cases b
+  congr
 
 def initialState : CubeState where
   corner_perm := 1
@@ -58,6 +66,26 @@ def initialState : CubeState where
 
 instance : One CubeState where
   one := initialState
+
+@[simp]
+theorem one_corner_perm : (1 : CubeState).corner_perm = 1 := by
+  rfl
+
+@[simp]
+theorem one_edge_perm : (1 : CubeState).edge_perm = 1 := by
+  rfl
+
+@[simp]
+theorem one_center_perm : (1 : CubeState).center_perm = 1 := by
+  rfl
+
+@[simp]
+theorem one_corner_ori : (1 : CubeState).corner_ori = fun _ => 0 := by
+  rfl
+
+@[simp]
+theorem one_edge_ori : (1 : CubeState).edge_ori = fun _ => 0 := by
+  rfl
 
 -- ## Basic Moves
 inductive BasicMove
