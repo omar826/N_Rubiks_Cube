@@ -6,7 +6,7 @@ import Mathlib.GroupTheory.SpecificGroups.Alternating -- For AlternatingGroup de
 --import Mathlib.GroupTheory.SpecificGroups.Symmetric -- For SymmetricGroup definition Sₙ
 import Mathlib.Data.List.Induction
 import NRubiksCube.FourRubik -- Assuming your main file is named FourRubik.lean
-
+import Mathlib.Order.WellFounded
 
 /-!
 # Solvability Conditions for the 4x4x4 Rubik's Revenge
@@ -425,23 +425,21 @@ theorem lemma2_sign_invariant (s : CubeState) (hs : IsSolvable s) :
   rw [h, ← moves_corner_center_sign_invariant, one_corner_center_sign_invariant]
 
 
-open BasicMove -- For BasicMove notation
+open BasicMove
 
 def fixed_corner_3_cycle_seq : List BasicMove :=
   r' ++ d' ++ r ++ u' ++ r' ++ d ++ r ++ u
 
--- 2. Define the target permutation
--- Cycle URF(1) -> URB(2) -> ULB(3) -> URF(1)
--- This is swap 1 3 * swap 1 2
+-- target permutation
 def target_corner_perm : Perm CornerSlot :=
   Equiv.cycle c_urf c_ufl c_drf
 
--- 3. State and try to prove the corner permutation equality using decide
--- This requires apply_move to be fully defined for R, U, D without sorry
 example : (apply_move_list fixed_corner_3_cycle_seq initialState).corner_perm = target_corner_perm := by
-  native_decide -- Use native_decide for potentially faster computation
+  native_decide
 
--- 4. State the full lemma (still likely needs sorry for other parts)
+/--
+Showing that fixed_corner_3_cycle_seq is a 3 cycle
+-/
 theorem fixed_corner_3_cycle_seq_effect :
     ∃ (s : CubeState), s = apply_move_list fixed_corner_3_cycle_seq 1 ∧
                        IsSolvable s ∧
@@ -449,41 +447,35 @@ theorem fixed_corner_3_cycle_seq_effect :
                        s.edge_perm = 1 ∧
                        s.center_perm = 1 ∧
                        s.edge_ori = fun _ => 0 := by
-  -- Define the state
+
   let s := apply_move_list fixed_corner_3_cycle_seq initialState
   use s
-  -- Prove the properties
+
   constructor
-  · -- Proof of s = apply_move_list ...
+  ·
     rfl
   · constructor
     · -- Proof of IsSolvable s
       use fixed_corner_3_cycle_seq; rfl
     · constructor
       · -- Proof of s.corner_perm = target_corner_perm
-        -- Try to compute and check equality
-        native_decide -- If this works, the corner perm is correct
-        -- If native_decide fails, replace with sorry
-        -- sorry
+
+        native_decide
       · constructor
         · -- Proof of s.edge_perm = 1
-          -- Requires computing the edge permutation product
-          native_decide --might work here too if apply_move is complete
+          native_decide
         · constructor
           · -- Proof of s.center_perm = 1
-            -- Requires computing the center permutation product
-            native_decide --might work here too
-          · -- Proof of s.edge_ori = fun _ => 0
-            -- Requires computing the final edge_ori function
-            native_decide -- Needs funext and calculation based on apply_move
+            native_decide
+          ·
+            native_decide
 
 
 -- Lemma asserting the existence of setup moves 'g' such that the conjugate g*m*g⁻¹
 -- performs the desired 3-cycle (i j k) while preserving other piece types / edge orientations.
--- This relies on the properties of the Rubik's group G₄.
 theorem corner_conjugation_works (i j k : CornerSlot)
     (h_distinct : i ≠ j ∧ i ≠ k ∧ j ≠ k) :
-    ∃ (g : Moves), -- The setup moves 'g'
+    ∃ (g : Moves),
       ∃ (s_conj : CubeState), -- The state after applying g * m * g⁻¹
          s_conj = apply_move_list (g ++ fixed_corner_3_cycle_seq ++ inv_move_list g) 1 ∧
          IsSolvable s_conj ∧
@@ -491,7 +483,7 @@ theorem corner_conjugation_works (i j k : CornerSlot)
          s_conj.edge_perm = 1 ∧
          s_conj.center_perm = 1 ∧
          s_conj.edge_ori = fun _ => 0 :=
-  sorry -- This axiom encapsulates the conjugation principle for pure corner 3-cycles
+  sorry
 
 
 /-- Consequence of Lemma 3 (C ≅ A₈): Any even permutation of corners can be achieved
@@ -504,7 +496,7 @@ theorem lemma3_corner_perm_achievability (σ_target : Perm CornerSlot)
                        s.edge_perm = 1 ∧
                        s.center_perm = 1 ∧
                        s.edge_ori = fun _ => 0 :=
-  sorry -- Proof relies on group theory and commutators generating A₈.
+  sorry
 
 -- Sequence: CF, CD, CF⁻¹, CD⁻¹, U⁻¹, CD, CF, CD⁻¹, CF⁻¹, U
 def center_3_cycle_seq : List BasicMove :=
@@ -608,6 +600,51 @@ theorem lemma5_edge_perm_achievability (τ_target : Perm EdgeSlot) :
                        s.center_perm = 1 :=
   sorry -- Proof relies on group theory and commutators generating S₂₄.
 
+def M : List BasicMove :=
+  r' ++ d ++ r ++ f ++ d ++ f' ++ u' ++ f ++ d' ++ f' ++ r' ++ d' ++ r ++ u
+
+theorem pure_double_twist_effect :
+    ∃ (s_M : CubeState), s_M = apply_move_list M 1 ∧
+                          IsSolvable s_M ∧
+                          s_M.corner_perm = 1 ∧
+                          s_M.edge_perm = 1 ∧
+                          s_M.center_perm = 1 ∧
+                          s_M.edge_ori = (fun _ => 0) ∧
+                          s_M.corner_ori Indexing.c_ufl = 1 ∧ -- +1 twist on UFL (slot 0)
+                          s_M.corner_ori Indexing.c_urf = 2 ∧ -- -1 (+2) twist on URF (slot 1)
+                          (∀ c, c ≠ Indexing.c_ufl ∧ c ≠ Indexing.c_urf → s_M.corner_ori c = 0) := by
+                          sorry
+
+theorem corner_twist_conjugation_works (i j : CornerSlot) (h_ne : i ≠ j) :
+    ∃ (s_ij : CubeState) (M_ij : List BasicMove),
+        s_ij = apply_move_list M_ij 1 ∧
+        IsSolvable s_ij ∧
+        s_ij.corner_perm = 1 ∧
+        s_ij.edge_perm = 1 ∧
+        s_ij.center_perm = 1 ∧
+        s_ij.edge_ori = (fun _ => 0) ∧ -- Crucial, strong assumption
+        s_ij.corner_ori i = 1 ∧
+        s_ij.corner_ori j = 2 ∧
+        (∀ c, c ≠ i ∧ c ≠ j → s_ij.corner_ori c = 0) := by
+  sorry -- Relies on group theory (conjugation) and assumes edge_ori preservation
+
+
+@[simp]
+def count_nonzero_corner_ori (s : CubeState) : Nat :=
+  (List.finRange 8).countP (fun i => s.corner_ori i ≠ 0)
+
+lemma count_zero_iff_ori_zero (s : CubeState) :
+    count_nonzero_corner_ori s = 0 ↔ s.corner_ori = (fun _ => 0) := by
+  aesop
+
+
+-- Lemma: Additive composition for corner_ori when perms are 1
+lemma apply_move_list_corner_ori_comp (M : List BasicMove) (s : CubeState) :
+    ∀ i, (apply_move_list M s).corner_ori i =
+    s.corner_ori ((apply_move_list M 1).corner_perm⁻¹ i) + (apply_move_list M 1).corner_ori i := by
+  sorry -- Assume you have the proof for this
+
+
 /-- Lemma 6 (Implied by paper): A state with identity permutations and zero edge
     orientation, satisfying the corner twist condition, is solvable. -/
 theorem lemma6_corner_twist_solvability (s : CubeState)
@@ -615,6 +652,5 @@ theorem lemma6_corner_twist_solvability (s : CubeState)
     (h_edge_ori : s.edge_ori = fun _ => 0)
     (h_twist : checkCornerTwist s) :
     IsSolvable s := by
-  sorry -- Proof relies on existence of pure corner twist algorithms.
-
+  sorry
 end FourRubik
