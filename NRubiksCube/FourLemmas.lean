@@ -1,12 +1,13 @@
-import Mathlib.GroupTheory.Perm.Sign -- For Equiv.Perm.sign
-import Mathlib.Data.Fintype.Basic    -- For Fintype instances
---import Mathlib.Algebra.BigOperators.Basic -- For Finset.sum
+import Mathlib.GroupTheory.Perm.Sign
+import Mathlib.Data.Fintype.Basic
 import Mathlib.Data.ZMod.Basic
-import Mathlib.GroupTheory.SpecificGroups.Alternating -- For AlternatingGroup definition Aₙ
---import Mathlib.GroupTheory.SpecificGroups.Symmetric -- For SymmetricGroup definition Sₙ
+import Mathlib.GroupTheory.SpecificGroups.Alternating
 import Mathlib.Data.List.Induction
-import NRubiksCube.FourRubik -- Assuming your main file is named FourRubik.lean
+import NRubiksCube.FourRubik
 import Mathlib.Order.WellFounded
+
+set_option maxRecDepth 10000
+set_option maxHeartbeats 10000000
 
 /-!
 # Solvability Conditions for the 4x4x4 Rubik's Revenge
@@ -23,10 +24,10 @@ A configuration `s : CubeState` is solvable if and only if:
 
 -/
 
-namespace FourRubik -- Continue in the same namespace
+namespace FourRubik
 
-open BigOperators -- For Finset.sum notation
-open Equiv -- For Equiv.Perm
+open BigOperators
+open Equiv
 
 open FourRubik
 open MoveImpl
@@ -156,17 +157,14 @@ def checkCornerTwist (s : CubeState) : Prop :=
 
 -- ## Condition 3: Edge Flip Condition (Requires Helpers)
 
--- Helper function to get the EdgeType (A or B) associated with an EdgeSlot index
--- Based on our convention: even index = A, odd index = B
+
+-- even index = A, odd index = B
 def getSlotType (slot : EdgeSlot) : Orientation.EdgeType :=
   if slot % 2 = 0 then Orientation.EdgeType.A else Orientation.EdgeType.B
 
 -- Helper function to get the EdgeType (A or B) associated with the *original* piece
--- that currently resides in the given slot 'i' in state 's'.
--- This requires looking at the inverse permutation.
 def getPieceTypeInSlot (s : CubeState) (slot : EdgeSlot) : Orientation.EdgeType :=
   let origin_slot : EdgeSlot := s.edge_perm⁻¹ slot
-  -- The type depends on the origin slot's index (even/odd)
   getSlotType origin_slot
 
 -- The delta function from the paper: δ_{t,s} = 1 if t=s, 0 otherwise
@@ -181,7 +179,6 @@ def checkEdgeFlip (s : CubeState) : Prop :=
 
 -- ## key lemmas
 
--- Step 1: Show the initial state satisfies the condition.
 theorem lemma1_step1_initial_state : checkCornerTwist 1 := by
   rw [checkCornerTwist]
   rfl
@@ -198,11 +195,29 @@ def get_move_corner_ori_delta (m : BasicMove) : CornerSlot → ZMod 3 :=
 def get_move_corner_perm (m : BasicMove) : Perm CornerSlot :=
   match m with
   | .R => r_move_corner_perm | .L => l_move_corner_perm
-  | .U => u_move_corner_perm | .D => d_move_corner_perm -- Assuming d_move defined
-  | .F => f_move_corner_perm | .B => b_move_corner_perm -- Assuming f_move/b_move defined
-  | .CR => cr_move_corner_perm | .CL => cl_move_corner_perm -- Assuming cl_move defined
-  | .CU => cu_move_corner_perm | .CD => cd_move_corner_perm -- Assuming cu/cd defined
-  | .CF => cf_move_corner_perm | .CB => cb_move_corner_perm -- Assuming cf/cb defined
+  | .U => u_move_corner_perm | .D => d_move_corner_perm
+  | .F => f_move_corner_perm | .B => b_move_corner_perm
+  | .CR => cr_move_corner_perm | .CL => cl_move_corner_perm
+  | .CU => cu_move_corner_perm | .CD => cd_move_corner_perm
+  | .CF => cf_move_corner_perm | .CB => cb_move_corner_perm
+
+def get_move_edge_perm (m : BasicMove) : Perm EdgeSlot :=
+  match m with
+  | .R => r_move_edge_perm | .L => l_move_edge_perm
+  | .U => u_move_edge_perm | .D => d_move_edge_perm
+  | .F => f_move_edge_perm | .B => b_move_edge_perm
+  | .CR => cr_move_edge_perm | .CL => cl_move_edge_perm
+  | .CU => cu_move_edge_perm | .CD => cd_move_edge_perm
+  | .CF => cf_move_edge_perm | .CB => cb_move_edge_perm
+
+def get_move_center_perm (m : BasicMove) : Perm CenterSlot :=
+  match m with
+  | .R => r_move_center_perm | .L => l_move_center_perm
+  | .U => u_move_center_perm | .D => d_move_center_perm
+  | .F => f_move_center_perm | .B => b_move_center_perm
+  | .CR => cr_move_center_perm | .CL => cl_move_center_perm
+  | .CU => cu_move_center_perm | .CD => cd_move_center_perm
+  | .CF => cf_move_center_perm | .CB => cb_move_center_perm
 
 theorem sum_corner_ori_delta_eq_zero (m : BasicMove) :
     ∑ (i : CornerSlot), (get_move_corner_ori_delta m) i = 0 := by
@@ -321,8 +336,6 @@ theorem lemma1_corner_twist_invariant (s : CubeState) (hs : IsSolvable s) :
   simp only [h, moves_check_corner_twist, lemma1_step1_initial_state]
 
 
--- Note: The following state the *consequences* of the isomorphism theorems
--- from the paper (Theorems 4.1, 4.2, 4.3) needed for the main proof.
 
 theorem one_corner_center_sign_invariant :
     Perm.sign (CubeState.corner_perm 1) * Perm.sign (CubeState.center_perm 1) = 1 := by
@@ -488,7 +501,6 @@ theorem corner_conjugation_works (i j k : CornerSlot)
 
 /-- Consequence of Lemma 3 (C ≅ A₈): Any even permutation of corners can be achieved
     by a solvable state that doesn't permute other pieces or affect edge orientation. -/
-
 theorem lemma3_corner_perm_achievability (σ_target : Perm CornerSlot)
     (h_even : Perm.sign σ_target = 1) :
     ∃ (s : CubeState), IsSolvable s ∧
@@ -508,41 +520,33 @@ def target_center_perm : Perm CenterSlot :=
 theorem center_3_cycle_seq_effect :
     ∃ (s : CubeState), s = apply_move_list center_3_cycle_seq 1 ∧
                         IsSolvable s ∧
-                        s.center_perm = target_center_perm ∧ -- Check center perm
-                        s.corner_perm = 1 ∧ -- Expect corners unaffected
-                        s.edge_perm = 1 ∧ -- Expect edges unaffected
-                        s.corner_ori = fun _ => 0 -- Expect corner ori unaffected
-                        -- We don't check edge_ori = 0, as it's likely not true
+                        s.center_perm = target_center_perm ∧
+                        s.corner_perm = 1 ∧
+                        s.edge_perm = 1 ∧
+                        s.corner_ori = fun _ => 0
                         := by
-  -- Define the state resulting from the sequence
-  let s := apply_move_list center_3_cycle_seq initialState -- initialState is 1
-  use s -- Claim this state s is the one that exists
 
-  -- Prove the properties using constructors (∧ -> constructor)
+  let s := apply_move_list center_3_cycle_seq initialState -- initialState is 1
+  use s
+
   constructor
   · -- Proof of s = apply_move_list ...
-    rfl -- Holds by definition of s
+    rfl
   · constructor
     · -- Proof of IsSolvable s
-      use center_3_cycle_seq -- Provide the list of moves
-      rfl -- The state s was defined using this list starting from 1 (initialState)
+      use center_3_cycle_seq
+      rfl
     · constructor
       · -- Proof of s.center_perm = target_center_perm
-        -- Compute the permutation resulting from the sequence and compare
-        native_decide -- If this works, the center perm matches target_center_perm
-        -- If it fails or times out, try `decide` or replace with `sorry`
-        -- If it fails because the permutation is DIFFERENT, adjust target_center_perm!
+        native_decide
+
       · constructor
         · -- Proof of s.corner_perm = 1
-          -- Compute the corner permutation and check it's identity
           native_decide
         · constructor
           · -- Proof of s.edge_perm = 1
-            -- Compute the edge permutation and check it's identity
             native_decide
           · -- Proof of s.corner_ori = fun _ => 0
-            -- Compute the final corner_ori function and check it's the zero function
-            -- This requires function extensionality (`funext`) and computation
             native_decide
 /-- Consequence of Lemma 4 (Z ≅ A₂₄): Any even permutation of centers can be achieved
     by a solvable state that doesn't permute other pieces or affect edge orientation. -/
@@ -553,8 +557,7 @@ theorem lemma4_center_perm_achievability (ρ_target : Perm CenterSlot)
                        s.corner_perm = 1 ∧
                        s.edge_perm = 1 ∧
                        s.edge_ori = fun _ => 0 :=
-  sorry -- Proof relies on group theory and commutators generating A₂₄.
-
+  sorry
 -- Sequence: CL⁻¹, L, U⁻¹, L⁻¹, U, CL, U⁻¹, L, U, L⁻¹
 def edge_3_cycle_seq : List BasicMove :=
   cl' ++ l ++ u' ++ l' ++ u ++ cl ++ u' ++ l ++ u ++ l'
@@ -565,30 +568,28 @@ def target_edge_perm : Perm EdgeSlot :=
 theorem edge_3_cycle_seq_effect :
     ∃ (s : CubeState), s = apply_move_list edge_3_cycle_seq 1 ∧
                         IsSolvable s ∧
-                        s.edge_perm = target_edge_perm ∧ -- Check edge perm
-                        s.corner_perm = 1 ∧ -- Expect corners unaffected
-                        s.center_perm = 1 ∧ -- Expect centers unaffected
-                        s.corner_ori = fun _ => 0 -- Expect corner ori unaffected
-                        -- Edge orientation is likely affected, so we don't check it
+                        s.edge_perm = target_edge_perm ∧
+                        s.corner_perm = 1 ∧
+                        s.center_perm = 1 ∧
+                        s.corner_ori = fun _ => 0
                         := by
   -- Define the state resulting from the sequence
   let s := apply_move_list edge_3_cycle_seq initialState -- initialState is 1
-  use s -- Claim this state s is the one that exists
+  use s
 
-  -- Prove the properties using constructors (∧ -> constructor)
-  constructor; rfl -- s = apply_move_list ... by definition
-  constructor; exact ⟨edge_3_cycle_seq, rfl⟩ -- IsSolvable s by definition
+  constructor; rfl
+  constructor; exact ⟨edge_3_cycle_seq, rfl⟩
   constructor
   · -- Proof of s.edge_perm = target_edge_perm
-    native_decide -- Computation with native_decide or decide likely too slow
+    native_decide
   · constructor
     · -- Proof of s.corner_perm = 1
-      native_decide -- Computation with native_decide or decide likely too slow
+      native_decide
     · constructor
       · -- Proof of s.center_perm = 1
-        native_decide -- Computation with native_decide or decide likely too slow
+        native_decide
       · -- Proof of s.corner_ori = fun _ => 0
-        native_decide -- Computation with native_decide or decide likely too slow
+        native_decide
 
 /-- Consequence of Lemma 5 (E ≅ S₂₄): Any permutation of edges can be achieved
     by a solvable state that doesn't permute other pieces.
@@ -598,7 +599,7 @@ theorem lemma5_edge_perm_achievability (τ_target : Perm EdgeSlot) :
                        s.edge_perm = τ_target ∧
                        s.corner_perm = 1 ∧
                        s.center_perm = 1 :=
-  sorry -- Proof relies on group theory and commutators generating S₂₄.
+  sorry
 
 def M : List BasicMove :=
   r' ++ d ++ r ++ f ++ d ++ f' ++ u' ++ f ++ d' ++ f' ++ r' ++ d' ++ r ++ u
