@@ -1022,9 +1022,41 @@ def inv_move_list (moves : List BasicMove) : List BasicMove :=
   -- Map inv_move over the reversed list, then join the results
   List.flatten (List.map inv_move (List.reverse moves))
 
+
+
 open BasicMove
+abbrev Moves : Type := List BasicMove
+-- Single Clockwise Moves (Defined as Lists)
+def r : Moves := [BasicMove.R]
+def l : Moves := [BasicMove.L]
+def u : Moves := [BasicMove.U]
+def d : Moves := [BasicMove.D]
+def f : Moves := [BasicMove.F]
+def b : Moves := [BasicMove.B]
+def cr : Moves := [BasicMove.CR]
+def cl : Moves := [BasicMove.CL]
+def cu : Moves := [BasicMove.CU]
+def cd : Moves := [BasicMove.CD]
+def cf : Moves := [BasicMove.CF]
+def cb : Moves := [BasicMove.CB]
+
+--write shorthand for inv_move R as R'
+def r' : List BasicMove := inv_move BasicMove.R
+def u' : List BasicMove := inv_move BasicMove.U
+def cr' : List BasicMove := inv_move BasicMove.CR
+def d' : List BasicMove := inv_move BasicMove.D
+def cu' : List BasicMove := inv_move BasicMove.CU
+def f' : List BasicMove := inv_move BasicMove.F
+def cf' : List BasicMove := inv_move BasicMove.CF
+def cd' : List BasicMove := inv_move BasicMove.CD
+def l' : List BasicMove := inv_move BasicMove.L
+def cl' : List BasicMove := inv_move BasicMove.CL
+def b' : List BasicMove := inv_move BasicMove.B
+def cb' : List BasicMove := inv_move BasicMove.CB
+
+
 def view_corner_cycle : IO Unit := do
-  let moves : List BasicMove := [R, R, R, D, D, D, R, U, U, U, R, R, R, D, R, U]
+  let moves : List BasicMove := r' ++ d' ++ r ++ u' ++ r' ++ d ++ r ++ u
   let final_state := apply_move_list moves 1
   printUnfoldedCube (stateToVisual final_state)
 
@@ -1043,6 +1075,7 @@ def view_test_2 : IO Unit := do
   let final_state := apply_move_list moves 1
   let final_state := apply_move_list (inv_move_list moves) final_state
   printUnfoldedCube (stateToVisual final_state)
+
 #eval view_initial
 #eval view_after_R
 #eval view_after_U
