@@ -987,6 +987,7 @@ theorem solvability_iff (s : CubeState) :
       exact iff_z1.mp h_s2_solv
 
     by_cases h_sign_final : (Perm.sign s.center_perm = 1)
+    .
       aesop
 
     ·
